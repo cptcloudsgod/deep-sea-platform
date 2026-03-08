@@ -1,0 +1,8 @@
+{
+  "name": "ais-proxy",
+  "version": "1.0.0",
+  "main": "ais-server.js",
+  "scripts": {
+    "start": "node ais-server.js"
+  }
+}
