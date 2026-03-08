@@ -4,5 +4,8 @@
   "main": "ais-server.js",
   "scripts": {
     "start": "node ais-server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
   }
 }
