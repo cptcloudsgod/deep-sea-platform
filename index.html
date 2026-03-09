@@ -213,6 +213,206 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const OIL_API_KEY = 'e77f25ebeb681615184bc0d676ae944901e66aa01035ea23f001459216526760';
 const OIL_PROXY = 'https://ais-proxy-rtn7.onrender.com';
 
+// ═══ EWRI / WAR RISK ═══════════════════════════════════════════
+// JWC Listed Areas — rotada bu bölgelerden geçiliyorsa EWRI ödenir
+const JWC_ZONES = {
+  'ADEN_GULF': {
+    name: 'Gulf of Aden / Red Sea',
+    ports: ['Jeddah','Aqaba','Djibouti','Yanbu','Dammam','Suez','Port Said','Aden'],
+    transit: ['Jeddah','Aqaba','Djibouti','Yanbu','Dammam'],  // bu limanlar arasında geçiş = Aden
+    rate_pct: 0.25,  // % of vessel value (editable)
+    vessel_value_default: 15000000, // $15M default (editable)
+  },
+  'LIBYA': {
+    name: 'Libya (Benghazi / Misurata)',
+    ports: ['Benghazi','Misurata'],
+    transit: [],
+    rate_pct: 0.25,
+    vessel_value_default: 15000000,
+  },
+  'OMAN_GULF': {
+    name: 'Gulf of Oman',
+    ports: ['Muscat','Sohar','Salalah','Duqm'],
+    transit: ['Jebel Ali','Khalifa','Dubai','Sharjah','Abu Dhabi','Muscat'],
+    rate_pct: 0.10,
+    vessel_value_default: 15000000,
+  },
+};
+
+// Gemi değeri (override edilebilir)
+const VESSEL_VALUES = {
+  'UGR ZAKHER':          18000000,
+  'UGR AL SAMHA':        18000000,
+  'CHANG SHENG HONG':    12000000,
+  'AL JUBAIL':           10000000,
+  'RAMHAN':              10000000,
+  'UGR ARABIAN GULF':    14000000,
+  'UGR AL REEF':         14000000,
+  'ABU SAMRAH':          8000000,
+  'SUPER-FAST BALEARES': 12000000,
+  'SAFFET BEY':          6000000,
+};
+
+function detectEWRIZones(portList) {
+  const triggered = [];
+  const portsLower = portList.map(p => p.toLowerCase());
+  
+  Object.entries(JWC_ZONES).forEach(([key, zone]) => {
+    const zonePortsLower = [...zone.ports, ...zone.transit].map(p => p.toLowerCase());
+    
+    if (key === 'ADEN_GULF') {
+      // Aden/Red Sea: Khalifa→Jeddah, Hambantota→Jeddah, Jeddah→Yantai vs.
+      // Kural: Rotada Gulf/Indian Ocean port'u + Red Sea port'u varsa ADEN geçişi
+      const gulfPorts = ['jebel ali','khalifa','dubai','sharjah','hambantota','karachi','dammam','muscat'];
+      const redSeaPorts = ['jeddah','aqaba','yanbu','djibouti','suez','port said','aden'];
+      const euPorts = ['barcelona','marseille','genova','livorno','toulon','tarragona'];
+      const hasGulf = portsLower.some(p => gulfPorts.some(g => p.includes(g)));
+      const hasRedSea = portsLower.some(p => redSeaPorts.some(r => p.includes(r)));
+      const hasFarEast = portsLower.some(p => ['ningbo','nansha','yantai','gunsan','shanghai','busan','singapore','hong kong'].some(f => p.includes(f)));
+      const hasEU = portsLower.some(p => euPorts.some(e => p.includes(e)));
+      // Rotada doğu+kızıldeniz veya doğu+med kombinasyonu = Aden geçişi
+      if ((hasGulf || hasFarEast) && (hasRedSea || hasEU)) {
+        triggered.push(key);
+      }
+      // Direkt Red Sea port'u da tek başına sayar
+      if (hasRedSea) {
+        if (!triggered.includes(key)) triggered.push(key);
+      }
+    } else {
+      // Libya, Oman: o port doğrudan rotadaysa
+      const hasZonePort = portsLower.some(p => zonePortsLower.some(zp => p.includes(zp)));
+      if (hasZonePort) triggered.push(key);
+    }
+  });
+  
+  return triggered;
+}
+
+function calcEWRI(vesselName, triggeredZones, overrides) {
+  // overrides: { zoneKey: { rate_pct, vessel_value, active } }
+  const details = [];
+  let totalEWRI = 0;
+  
+  triggeredZones.forEach(key => {
+    const zone = JWC_ZONES[key];
+    const ov = overrides?.[key] || {};
+    const active = ov.active !== undefined ? ov.active : true;
+    if (!active) return;
+    
+    const rate = ov.rate_pct !== undefined ? ov.rate_pct : zone.rate_pct;
+    const vesselVal = ov.vessel_value !== undefined ? ov.vessel_value 
+                    : (VESSEL_VALUES[vesselName] || zone.vessel_value_default);
+    const cost = vesselVal * (rate / 100);
+    details.push({ key, name: zone.name, rate, vesselVal, cost, active });
+    totalEWRI += cost;
+  });
+  
+  return { total: totalEWRI, details };
+}
+
+// ═══ EU ETS + FuelEU ═══════════════════════════════════════════
+const EU_PORTS = ['Barcelona','Marseille','Genova','Livorno','Toulon','Tarragona',
+                  'Rotterdam','Antwerp','Hamburg','Bremerhaven','Zeebrugge',
+                  'Valencia','Vigo','Bilbao','Le Havre','Fos-sur-Mer','Koper',
+                  'Piraeus','Thessaloniki','Trieste','Venice'];
+const EU_ETS_PRICE_EUR = 65; // €/tonne CO2 — editable
+const EUR_USD = 1.09;        // editable
+const FUELEU_PENALTY_EUR_PER_GJ = 2400; // €/GJ shortfall penalty (2025)
+const CO2_FACTORS = { 'MGO': 3.206, 'VLSFO': 3.151, 'HFO': 3.114, 'LNG': 2.750 }; // tCO2/MT
+const LHV = { 'MGO': 42.7, 'VLSFO': 41.2, 'HFO': 40.5, 'LNG': 50.0 }; // MJ/kg (energy content)
+// FuelEU GHG intensity targets (gCO2eq/MJ)
+const FUELEU_TARGET_2025 = 89.34; // 2% reduction from 2020 baseline 91.16
+const FUELEU_BASELINE = 91.16;
+
+function isEUPort(portName) {
+  return EU_PORTS.some(ep => portName.toLowerCase().includes(ep.toLowerCase()) || 
+                              ep.toLowerCase().includes(portName.toLowerCase()));
+}
+
+function calcEUCosts(legs, portFuelDetails, routePortList, etsPriceEur, eurUsd) {
+  // EU ETS: Scope — voyages TO/FROM EU ports
+  // 2025: 70% of emissions covered (phasing: 40% in 2024, 70% 2025, 100% 2026)
+  const ETS_COVERAGE_2025 = 0.70;
+  
+  let etsCO2 = 0;
+  let fuelEUconsumed = { energy_gj: 0, co2: 0, fuel_mt: 0 };
+  const legDetails = [];
+  
+  legs.forEach(l => {
+    if (l.missing || !l.fuelMT) return;
+    const fromEU = isEUPort(l.from);
+    const toEU = isEUPort(l.to);
+    const fuelType = l.fuel?.fuel || 'VLSFO';
+    const co2Factor = CO2_FACTORS[fuelType] || 3.151;
+    const lhv = LHV[fuelType] || 41.2;
+    const co2 = l.fuelMT * co2Factor;
+    const energyGJ = l.fuelMT * lhv * 0.001; // MT * MJ/kg * 1000kg/MT / 1000 = GJ
+    
+    let etsFraction = 0;
+    if (fromEU && toEU) etsFraction = 1.0;       // intra-EU: 100%
+    else if (fromEU || toEU) etsFraction = 0.5;   // in/out EU: 50%
+    
+    const etsCO2leg = co2 * etsFraction * ETS_COVERAGE_2025;
+    etsCO2 += etsCO2leg;
+    
+    // FuelEU: only applies to EU port calls
+    if (fromEU || toEU) {
+      fuelEUconsumed.energy_gj += energyGJ * (fromEU && toEU ? 1.0 : 0.5);
+      fuelEUconsumed.co2 += co2 * (fromEU && toEU ? 1.0 : 0.5);
+      fuelEUconsumed.fuel_mt += l.fuelMT * (fromEU && toEU ? 1.0 : 0.5);
+    }
+    
+    if (etsFraction > 0) {
+      legDetails.push({ leg: l.from+'→'+l.to, fromEU, toEU, etsFraction, co2, etsCO2leg, energyGJ, fuelType });
+    }
+  });
+  
+  // Port fuel at EU ports → ETS applies (100%)
+  portFuelDetails.forEach(pd => {
+    if (!isEUPort(pd.port)) return;
+    const fuelType = pd.fuel?.fuel || 'VLSFO';
+    const co2Factor = CO2_FACTORS[fuelType] || 3.151;
+    const lhv = LHV[fuelType] || 41.2;
+    const co2port = pd.mt * co2Factor;
+    const energyPort = pd.mt * lhv * 0.001;
+    etsCO2 += co2port * ETS_COVERAGE_2025;
+    fuelEUconsumed.energy_gj += energyPort;
+    fuelEUconsumed.co2 += co2port;
+    fuelEUconsumed.fuel_mt += pd.mt;
+  });
+  
+  const etsUSD = etsCO2 * (etsPriceEur * eurUsd);
+  
+  // FuelEU penalty calculation
+  // Actual GHG intensity of fuel used
+  let actualGHGintensity = FUELEU_BASELINE; // fallback
+  if (fuelEUconsumed.energy_gj > 0) {
+    actualGHGintensity = (fuelEUconsumed.co2 * 1000000) / (fuelEUconsumed.energy_gj * 1000); // gCO2eq/MJ
+  }
+  const ghgTarget = FUELEU_TARGET_2025;
+  const shortfall = Math.max(0, actualGHGintensity - ghgTarget); // gCO2eq/MJ over target
+  // Penalty: shortfall * energy_GJ * 1000 MJ/GJ / 1,000,000 (g→t) * penalty_rate
+  const fuelEUpenaltyMJ = shortfall * fuelEUconsumed.energy_gj * 1000; // gCO2eq total excess
+  const fuelEUpenaltyUSD = (fuelEUpenaltyMJ / 1000000) * FUELEU_PENALTY_EUR_PER_GJ * eurUsd;
+  
+  const hasEU = routePortList.some(p => isEUPort(p));
+  
+  return {
+    hasEU,
+    etsCO2: etsCO2,
+    etsUSD,
+    etsPriceEur: etsPriceEur || EU_ETS_PRICE_EUR,
+    fuelEUconsumed,
+    actualGHGintensity,
+    ghgTarget,
+    shortfall,
+    fuelEUpenaltyUSD,
+    legDetails,
+    coverage: ETS_COVERAGE_2025,
+  };
+}
+
+
 function showKeySetup(){
   showModal('<h3>Supabase Bağlantısı</h3>'
     +'<div class="form-row full"><div><div class="form-label">Supabase Anon Key (Settings > API > anon public)</div>'
@@ -1421,8 +1621,51 @@ async function renderRouteOptimizer(){
   html += '</div>';
   
   html += '<div class="form-row"><div><div class="form-label">Revenue Beklentisi ($)</div><input class="form-input" type="number" id="rRevenue" value="0"></div>';
-  html += '<div><div class="form-label">Liman Masrafı Toplam ($)</div><input class="form-input" type="number" id="rPortCost" value="0"></div></div>';
+  html += '<div><div class="form-label">Kargo Adedi (araç — liman masrafı için)</div><input class="form-input" type="number" id="rCargoUnits" value="0" oninput="updatePortCostEstimates()"></div></div>';
   
+  // PDA Reference Port Cost table — editable
+  html += '<div style="margin:10px 0;padding:10px;background:rgba(239,68,68,.03);border:1px solid var(--border);border-radius:6px">';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+  html += '<div class="form-label" style="margin:0">📋 LİMAN MASRAF TAHMİNLERİ (PDA Referans — Düzenlenebilir)</div>';
+  html += '<span style="font-size:7px;color:var(--fog)">Referans: önceki PDA/fatura ortalaması. Kargo miktarına göre ölçeklenir.</span>';
+  html += '</div>';
+  html += '<div id="pdaPortCostTable" style="font-size:9px"></div>';
+  html += '<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px;display:flex;justify-content:space-between">';
+  html += '<span style="font-size:9px;color:var(--fog)">Toplam (otomatik)</span>';
+  html += '<span id="pdaTotalDisplay" style="font-size:10px;font-weight:700;color:var(--red)">$0</span>';
+  html += '</div>';
+  html += '<div class="form-row" style="margin-top:6px">';
+  html += '<div><div class="form-label">Manuel Override Toplam ($)</div><input class="form-input" type="number" id="rPortCost" value="0" placeholder="0 = otomatik" oninput="updatePortCostDisplay()"></div>';
+  html += '<div style="display:flex;align-items:flex-end"><button class="btn" style="font-size:8px;padding:4px 8px" onclick="useAutoPDA()">Otomatiği Kullan</button></div>';
+  html += '</div>';
+  html += '</div>';
+  
+  // EWRI panel (auto-detected, user can edit)
+  html += '<div style="margin:10px 0;padding:10px;background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);border-radius:6px">';
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
+  html += '<span style="font-size:10px;font-weight:700;color:var(--red)">⚔️ EWRI / WAR RISK</span>';
+  html += '<span style="font-size:7px;color:var(--fog)">JWC listesi — rota tespiti otomatik, değerler düzenlenebilir</span>';
+  html += '</div>';
+  html += '<div id="ewriZones" style="font-size:9px;color:var(--fog)">Rota girin → bölgeler otomatik tespit edilir</div>';
+  html += '<div style="margin-top:6px;border-top:1px solid rgba(239,68,68,.1);padding-top:6px;display:flex;justify-content:space-between">';
+  html += '<span style="font-size:9px;color:var(--fog)">EWRI Toplam</span>';
+  html += '<span id="ewriTotalDisplay" style="font-size:10px;font-weight:700;color:var(--red)">$0</span>';
+  html += '</div>';
+  html += '</div>';
+  
+  // EU ETS + FuelEU panel
+  html += '<div style="margin:10px 0;padding:10px;background:rgba(16,185,129,.03);border:1px solid rgba(16,185,129,.15);border-radius:6px">';
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
+  html += '<span style="font-size:10px;font-weight:700;color:var(--teal)">🌍 EU ETS + FuelEU</span>';
+  html += '<span style="font-size:7px;color:var(--fog)">Sadece EU limanı olan rotalar için aktif</span>';
+  html += '</div>';
+  html += '<div class="form-row" style="margin-bottom:6px">';
+  html += '<div><div class="form-label">ETS Fiyatı (€/tCO₂)</div><input class="form-input" type="number" id="rETSPrice" value="65" style="width:70px"></div>';
+  html += '<div><div class="form-label">EUR/USD</div><input class="form-input" type="number" step="0.01" id="rEURUSD" value="1.09" style="width:70px"></div>';
+  html += '</div>';
+  html += '<div id="euCostDisplay" style="font-size:9px;color:var(--fog)">EU limanı olan rota girilince hesaplanır</div>';
+  html += '</div>';
+
   html += '<div class="btn-row"><button class="btn btn-green" onclick="calculateRoute()">🧮 HESAPLA</button>';
   html += '<button class="btn" onclick="clearRoute()">TEMİZLE</button></div>';
   html += '</div>';
@@ -1483,6 +1726,11 @@ async function renderRouteOptimizer(){
   const initOpt = $('rVessel').options[0];
   if(initOpt) $('rSpeed').value = initOpt.dataset.spd;
   
+  // Update EWRI/PDA on vessel change
+  $('rVessel').addEventListener('change', function(){
+    updateEWRIPreview();
+  });
+  
   // Show initial distance table
   filterDistances();
 }
@@ -1495,6 +1743,9 @@ function updateRouteFromInput(){
   if(!input){
     routePortList = [];
     renderRouteVisual();
+    window.PDA_OVERRIDES = {};
+    renderPDATable();
+    updateEWRIPreview();
     return;
   }
   
@@ -1819,6 +2070,148 @@ function getSeaFuelForLeg(vessel, fromPort, toPort){
   return {fuel:allowed[0], price: getFuelPrice(allowed[0]), reason:'Varsayilan'};
 }
 
+
+// ═══ PDA PORT COST REFERENCE ═══════════════════════════════════
+// Format: base_usd = sabit gider (pilotaj, port dues vs.)
+//         per_unit = araç başı (stevedoring, terminal handling)
+//         ref_units = referans seferdeki araç adedi
+//         ref_total = referans sefer toplam PDA
+// Kullanıcı kargo adedi girince: base + (per_unit * new_units)
+const PDA_REFERENCE = {
+  'Khalifa':        { base_usd: 35000, per_unit: 12, ref_units: 1800, ref_total: 56600 },
+  'Jebel Ali':      { base_usd: 40000, per_unit: 14, ref_units: 1800, ref_total: 65200 },
+  'Jeddah':         { base_usd: 55000, per_unit: 18, ref_units: 1500, ref_total: 82000 },
+  'Aqaba':          { base_usd: 45000, per_unit: 15, ref_units: 1200, ref_total: 63000 },
+  'Dammam':         { base_usd: 48000, per_unit: 16, ref_units: 1200, ref_total: 67200 },
+  'Yanbu':          { base_usd: 42000, per_unit: 14, ref_units: 1000, ref_total: 56000 },
+  'Djibouti':       { base_usd: 30000, per_unit: 10, ref_units: 800,  ref_total: 38000 },
+  'Hambantota':     { base_usd: 25000, per_unit: 8,  ref_units: 1000, ref_total: 33000 },
+  'Singapore':      { base_usd: 50000, per_unit: 20, ref_units: 2000, ref_total: 90000 },
+  'Ningbo':         { base_usd: 45000, per_unit: 15, ref_units: 2500, ref_total: 82500 },
+  'Nansha':         { base_usd: 42000, per_unit: 14, ref_units: 2000, ref_total: 70000 },
+  'Yantai':         { base_usd: 40000, per_unit: 13, ref_units: 2000, ref_total: 66000 },
+  'Gunsan':         { base_usd: 38000, per_unit: 12, ref_units: 1500, ref_total: 56000 },
+  'Barcelona':      { base_usd: 65000, per_unit: 22, ref_units: 1500, ref_total: 98000 },
+  'Marseille':      { base_usd: 60000, per_unit: 20, ref_units: 1200, ref_total: 84000 },
+  'Genova':         { base_usd: 70000, per_unit: 25, ref_units: 1200, ref_total: 100000 },
+  'Livorno':        { base_usd: 65000, per_unit: 22, ref_units: 1000, ref_total: 87000 },
+  'Rotterdam':      { base_usd: 75000, per_unit: 28, ref_units: 2000, ref_total: 131000 },
+  'Antwerp':        { base_usd: 72000, per_unit: 26, ref_units: 1800, ref_total: 118800 },
+  'Benghazi':       { base_usd: 80000, per_unit: 30, ref_units: 1000, ref_total: 110000 },
+  'Misurata':       { base_usd: 75000, per_unit: 28, ref_units: 1000, ref_total: 103000 },
+  'Alexandria':     { base_usd: 55000, per_unit: 18, ref_units: 1200, ref_total: 76600 },
+  'Dar Es Salaam':  { base_usd: 35000, per_unit: 12, ref_units: 800,  ref_total: 44600 },
+  'Karachi':        { base_usd: 40000, per_unit: 14, ref_units: 1000, ref_total: 54000 },
+  'Haydarpasa':     { base_usd: 50000, per_unit: 16, ref_units: 1200, ref_total: 69200 },
+  'Derince':        { base_usd: 48000, per_unit: 15, ref_units: 1000, ref_total: 63000 },
+  'Djen Djen':      { base_usd: 45000, per_unit: 15, ref_units: 1000, ref_total: 60000 },
+};
+
+// Current editable overrides (user can change in UI)
+window.PDA_OVERRIDES = {};
+
+function getPDAcost(portName, cargoUnits) {
+  const key = Object.keys(PDA_REFERENCE).find(k => 
+    portName.toLowerCase().includes(k.toLowerCase()) || 
+    k.toLowerCase().includes(portName.toLowerCase())
+  );
+  const ov = window.PDA_OVERRIDES[portName];
+  if (ov !== undefined) return ov; // user manually set
+  if (!key) return 50000; // default
+  const pda = PDA_REFERENCE[key];
+  if (!cargoUnits || cargoUnits === 0) return pda.ref_total;
+  return Math.round(pda.base_usd + pda.per_unit * cargoUnits);
+}
+
+function renderPDATable() {
+  if (!routePortList || routePortList.length === 0) return;
+  const cargoUnits = +($('rCargoUnits')?.value || 0);
+  let html = '<table class="tbl"><thead><tr>';
+  html += '<th>Liman</th><th>Referans</th><th>Kargo Adedi</th><th>Tahmini PDA</th><th>Manuel</th>';
+  html += '</tr></thead><tbody>';
+  
+  let total = 0;
+  routePortList.forEach(port => {
+    const pda = getPDAcost(port, cargoUnits);
+    const key = Object.keys(PDA_REFERENCE).find(k => 
+      port.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(port.toLowerCase())
+    );
+    const ref = PDA_REFERENCE[key];
+    const hasOverride = window.PDA_OVERRIDES[port] !== undefined;
+    total += pda;
+    
+    html += '<tr>';
+    html += '<td style="font-weight:600">' + port + '</td>';
+    html += '<td style="font-size:8px;color:var(--fog)">' + (ref ? '$'+fmtN(ref.ref_total)+' ('+fmtN(ref.ref_units)+' araç)' : '—') + '</td>';
+    html += '<td style="font-size:8px">' + (cargoUnits > 0 ? fmtN(cargoUnits) : '—') + '</td>';
+    html += '<td class="' + (hasOverride ? 'amber' : 'red') + '" style="font-weight:600">$' + fmtN(pda) + (hasOverride ? ' ✏️' : '') + '</td>';
+    html += '<td><input type="number" style="width:80px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px" ';
+    html += 'placeholder="Manuel" value="' + (hasOverride ? window.PDA_OVERRIDES[port] : '') + '" ';
+    html += 'onchange="setPDAOverride('' + port + '', this.value)">';
+    html += '</td>';
+    html += '</tr>';
+  });
+  
+  html += '</tbody></table>';
+  const el = document.getElementById('pdaPortCostTable');
+  if (el) el.innerHTML = html;
+  const tot = document.getElementById('pdaTotalDisplay');
+  if (tot) tot.textContent = '$' + fmtN(total);
+  
+  // Also update manual override field if it's 0
+  const manualField = document.getElementById('rPortCost');
+  if (manualField && (+manualField.value === 0)) {
+    // keep at 0 to signal "use auto"
+  }
+  
+  window._autoPDAtotal = total;
+}
+
+function setPDAOverride(port, val) {
+  const v = parseFloat(val);
+  if (!isNaN(v) && v > 0) window.PDA_OVERRIDES[port] = v;
+  else delete window.PDA_OVERRIDES[port];
+  renderPDATable();
+}
+
+function updatePortCostEstimates() { renderPDATable(); }
+function useAutoPDA() { 
+  const f = document.getElementById('rPortCost'); 
+  if (f) { f.value = 0; }
+  renderPDATable();
+}
+function updatePortCostDisplay() {}
+
+// EWRI live preview (updates as route changes)
+function updateEWRIPreview() {
+  if (!routePortList || routePortList.length < 2) return;
+  const zones = detectEWRIZones(routePortList);
+  const vesselSel = document.getElementById('rVessel');
+  const vesselName = vesselSel ? vesselSel.options[vesselSel.selectedIndex]?.text?.split(' (')[0] : '';
+  const ewri = calcEWRI(vesselName, zones, {});
+  
+  const el = document.getElementById('ewriZones');
+  if (!el) return;
+  
+  if (zones.length === 0) {
+    el.innerHTML = '<span style="color:var(--green)">✅ JWC bölgesi yok — EWRI uygulanmaz</span>';
+    document.getElementById('ewriTotalDisplay').textContent = '$0';
+    window._autoEWRItotal = 0;
+    return;
+  }
+  
+  let html = '';
+  ewri.details.forEach(d => {
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(239,68,68,.1)">';
+    html += '<span>⚔️ <b>' + d.name + '</b> — ' + d.rate + '% × $' + fmtN(d.vesselVal) + '</span>';
+    html += '<span class="red" style="font-weight:700">$' + fmtN(d.cost) + '</span>';
+    html += '</div>';
+  });
+  el.innerHTML = html || '<span style="color:var(--fog)">—</span>';
+  document.getElementById('ewriTotalDisplay').textContent = '$' + fmtN(ewri.total);
+  window._autoEWRItotal = ewri.total;
+}
+
 async function calculateRoute(){
   if(routePortList.length < 2){
     toast('En az 2 liman gerekli', 'error');
@@ -1874,8 +2267,9 @@ async function calculateRoute(){
     autoTotalPC += getSuezCost() * suezTransits;
   }
   
+  // PDA auto-total
   if(portCostInput === 0){
-    portCostInput = autoTotalPC;
+    portCostInput = window._autoPDAtotal || autoTotalPC;
   }
   const vesselName = vessel.name;
   
@@ -1951,7 +2345,18 @@ async function calculateRoute(){
   
   // TC hire
   const hireCost = totalWithMargin * vessel.tc_rate_daily;
-  const totalCost = totalFuelCost + hireCost + portCostInput;
+  // EWRI
+  const ewriZones = detectEWRIZones(routePortList);
+  const ewriResult = calcEWRI(vesselName, ewriZones, {});
+  const ewriCost = ewriResult.total;
+  
+  // EU ETS + FuelEU
+  const etsPriceEur = +($('rETSPrice')?.value || EU_ETS_PRICE_EUR);
+  const eurUsd = +($('rEURUSD')?.value || EUR_USD);
+  const euResult = calcEUCosts(legs, portFuelDetails, routePortList, etsPriceEur, eurUsd);
+  const euTotalCost = euResult.etsUSD + euResult.fuelEUpenaltyUSD;
+  
+  const totalCost = totalFuelCost + hireCost + portCostInput + ewriCost + euTotalCost;
   const profit = revenue - totalCost;
   const dailyProfit = totalWithMargin > 0 ? profit / totalWithMargin : 0;
   const tce = dailyProfit + vessel.tc_rate_daily;
@@ -2042,13 +2447,41 @@ async function calculateRoute(){
   rh += '<div class="rr"><span class="rn">Seyir yakıtı</span><span class="rv red">'+fmt(totalFuelCost - portFuelCost)+'</span></div>';
   rh += '<div class="rr"><span class="rn">Liman yakıtı</span><span class="rv red">'+fmt(portFuelCost)+'</span></div>';
   rh += '<div class="rr"><span class="rn">TC Hire ($'+fmtN(vessel.tc_rate_daily)+'/d × '+totalWithMargin.toFixed(1)+'d)</span><span class="rv red">'+fmt(hireCost)+'</span></div>';
-  rh += '<div class="rr"><span class="rn">Liman masrafı '+(portCostInput===autoTotalPC?'(OTOMATİK)':'(MANUEL)')+'</span><span class="rv red">'+fmt(portCostInput)+'</span></div>';
-  if(portCostInput === autoTotalPC){
+  rh += '<div class="rr"><span class="rn">Liman masrafı '+(portCostInput===(window._autoPDAtotal||autoTotalPC)?'(OTOMATİK PDA)':'(MANUEL)')+'</span><span class="rv red">'+fmt(portCostInput)+'</span></div>';
+  if(portCostInput === (window._autoPDAtotal||autoTotalPC)){
     autoPortCosts.forEach(apc => {
-      rh += '<div style="font-size:7px;color:var(--fog);padding-left:12px">'+apc.port+': '+fmt(apc.cost)+'</div>';
+      rh += '<div style="font-size:7px;color:var(--fog);padding-left:12px">'+apc.port+': '+fmt(getPDAcost(apc.port, +($("rCargoUnits")?.value||0)))+'</div>';
     });
     if(suezNeeded) rh += '<div style="font-size:7px;color:var(--amber);padding-left:12px">⚡ Suez Canal: '+fmt(getSuezCost())+' × '+suezTransits+' geçiş = '+fmt(getSuezCost()*suezTransits)+'</div>';
   }
+  
+  // EWRI
+  if(ewriCost > 0){
+    rh += '<div class="rr" style="border-top:1px solid rgba(239,68,68,.1);margin-top:4px">';
+    rh += '<span class="rn" style="color:var(--red)">⚔️ EWRI / War Risk</span><span class="rv red">'+fmt(ewriCost)+'</span></div>';
+    ewriResult.details.forEach(d => {
+      rh += '<div style="font-size:7px;color:var(--fog);padding-left:12px">'+d.name+': '+d.rate+'% × $'+fmtN(d.vesselVal)+' = '+fmt(d.cost)+'</div>';
+    });
+  } else {
+    rh += '<div class="rr"><span class="rn" style="color:var(--green)">✅ EWRI</span><span class="rv green">$0 — JWC bölgesi yok</span></div>';
+  }
+  
+  // EU ETS + FuelEU
+  if(euResult.hasEU){
+    rh += '<div class="rr" style="border-top:1px solid rgba(16,185,129,.1);margin-top:4px">';
+    rh += '<span class="rn" style="color:var(--teal)">🌍 EU ETS (2025 — %70 kapsam)</span><span class="rv amber">'+fmt(euResult.etsUSD)+'</span></div>';
+    rh += '<div style="font-size:7px;color:var(--fog);padding-left:12px">'+(euResult.etsCO2.toFixed(1))+' tCO₂ × €'+etsPriceEur+'/tCO₂ × '+eurUsd+' = '+fmt(euResult.etsUSD)+'</div>';
+    if(euResult.fuelEUpenaltyUSD > 0){
+      rh += '<div class="rr"><span class="rn" style="color:var(--teal)">🌍 FuelEU Penalty</span><span class="rv amber">'+fmt(euResult.fuelEUpenaltyUSD)+'</span></div>';
+      rh += '<div style="font-size:7px;color:var(--fog);padding-left:12px">Gerçek yoğunluk: '+euResult.actualGHGintensity.toFixed(1)+' gCO₂/MJ | Hedef: '+euResult.ghgTarget+' | Fark: '+euResult.shortfall.toFixed(2)+'</div>';
+    } else {
+      rh += '<div class="rr"><span class="rn" style="color:var(--green)">✅ FuelEU</span><span class="rv green">Ceza yok (hedef altında)</span></div>';
+    }
+    rh += '<div class="rr"><span class="rn">EU toplam regülasyon maliyeti</span><span class="rv amber">'+fmt(euTotalCost)+'</span></div>';
+  } else {
+    rh += '<div class="rr"><span class="rn" style="color:var(--green)">✅ EU ETS/FuelEU</span><span class="rv green">$0 — EU limanı yok</span></div>';
+  }
+  
   rh += '<div class="rr"><span class="rn"><b>Toplam maliyet</b></span><span class="rv red"><b>'+fmt(totalCost)+'</b></span></div>';
   rh += '<div class="divider"></div>';
   rh += '<div class="rr"><span class="rn" style="font-size:12px"><b>PROFIT</b></span><span class="rv '+profitCls+'" style="font-size:14px"><b>'+fmt(profit)+'</b></span></div>';
