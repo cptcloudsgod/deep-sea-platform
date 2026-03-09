@@ -22,8 +22,8 @@
 *{margin:0;padding:0;box-sizing:border-box}
 html{font-size:13px}
 body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;min-height:100vh}
-.app{max-width:none;margin:0;padding:0}
-.hdr{display:flex;justify-content:space-between;align-items:center;padding:0 20px;height:48px;background:var(--navy);border-radius:0;margin-bottom:0;border-bottom:3px solid var(--orange);position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.app{max-width:1600px;margin:0 auto;padding:10px 16px 40px}
+.hdr{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--navy);border-radius:4px;margin-bottom:10px;border-bottom:3px solid var(--orange);box-shadow:0 2px 8px rgba(0,0,0,.12)}
 .hdr h1{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:1rem;color:#fff;letter-spacing:1px}
 .hdr h1 span{color:var(--orange)}
 .hdr .sub{font-family:'IBM Plex Mono',monospace;font-size:8px;color:rgba(255,255,255,.6);letter-spacing:1.5px;text-transform:uppercase;margin-top:2px}
@@ -31,7 +31,7 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-ser
 .hdr-r div{font-family:'IBM Plex Mono',monospace;font-size:8px;color:rgba(255,255,255,.6)}
 .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase;background:rgba(22,163,74,.15);color:#16a34a;border:1px solid rgba(22,163,74,.25);margin-top:3px}
 /* Ticker */
-.ticker-wrap{background:#172d4a;overflow:hidden;height:26px;position:relative;border-radius:0;margin-bottom:0;border-bottom:1px solid rgba(255,255,255,.05)}
+.ticker-wrap{background:#172d4a;overflow:hidden;height:28px;position:relative;border-radius:6px;margin-bottom:10px}
 .ticker{display:flex;animation:tickerScroll 45s linear infinite;white-space:nowrap;align-items:center;height:30px}
 .ticker:hover{animation-play-state:paused}
 .ticker-item{display:inline-flex;align-items:center;gap:5px;padding:0 18px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#fff;border-right:1px solid rgba(255,255,255,.08)}
@@ -44,11 +44,11 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-ser
 .ticker-sep{padding:0 12px;color:rgba(255,255,255,.2);font-size:10px}
 @keyframes tickerScroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 /* Tabs */
-.tabs{display:flex;gap:2px;margin-bottom:0;background:var(--navy);padding:0 20px;border:none;box-shadow:none;border-bottom:1px solid rgba(255,255,255,.06)}
-.tab{flex:initial;padding:12px 16px;text-align:center;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:500;letter-spacing:0.3px;color:rgba(255,255,255,.55);cursor:pointer;border-radius:0;border-bottom:2px solid transparent;margin-bottom:-1px;transition:.15s}
-.tab:hover{color:rgba(255,255,255,.85);background:rgba(255,255,255,.05);border-bottom-color:rgba(255,255,255,.3)}
-.tab.act{color:#fff;background:transparent;font-weight:600;border-bottom-color:var(--orange)}
-.tc{display:none}.tc.act{display:block;padding:12px 20px 40px;max-width:1600px;margin:0 auto}
+.tabs{display:flex;gap:3px;margin-bottom:10px;background:var(--navy);border-radius:6px;padding:4px;border:none;box-shadow:var(--shadow)}
+.tab{flex:1;padding:8px;text-align:center;font-family:'IBM Plex Sans',sans-serif;font-size:10px;font-weight:500;letter-spacing:.3px;color:rgba(255,255,255,.6);cursor:pointer;border-radius:5px;transition:.2s}
+.tab:hover{color:#fff;background:rgba(255,255,255,.08)}
+.tab.act{color:#fff;background:rgba(255,255,255,.12);font-weight:600}
+.tc{display:none}.tc.act{display:block}
 /* Panels */
 .pnl{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:14px 16px;transition:.15s;box-shadow:var(--shadow)}
 .pnl:hover{box-shadow:var(--shadow-md);border-color:#d1d5db}
@@ -169,12 +169,10 @@ select:focus,input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,9
   <div class="tab" onclick="stab(10)">AIS Takip</div>
 </div>
 <!-- Archive sub-tabs (hidden by default) -->
-<div style="background:#0d1f35;border-bottom:1px solid rgba(255,255,255,.05)" id="archiveTabs" style="display:none">
-  <div class="tabs" style="padding-left:40px">
-    <div class="tab" onclick="stab(3)" style="font-size:10px">Limanlar</div>
-    <div class="tab" onclick="stab(4)" style="font-size:10px">Karar Motoru</div>
-    <div class="tab" onclick="stab(6)" style="font-size:10px">Kurallar</div>
-  </div>
+<div class="tabs" id="archiveTabs" style="display:none;margin-top:-8px;background:rgba(10,21,37,.6)">
+  <div class="tab" onclick="stab(3)" style="font-size:8px">🌍 Limanlar</div>
+  <div class="tab" onclick="stab(4)" style="font-size:8px">⚖️ Karar Motoru</div>
+  <div class="tab" onclick="stab(6)" style="font-size:8px">📏 Kurallar</div>
 </div>
 
 <!-- TAB CONTAINERS -->
@@ -1662,14 +1660,12 @@ async function renderRouteOptimizer(){
   
   let html = '';
   
-  // === ROUTE CALCULATOR — Concept B split layout ===
-  html += '<div style="display:grid;grid-template-columns:400px 1fr;gap:0;min-height:calc(100vh - 160px)">';
+  // === ROUTE CALCULATOR ===
+  html += '<div class="pnl mb"><div class="pnl-t">🧭 Rota Hesaplayıcı</div>';
+  html += '<div class="g2" style="gap:12px">';
   
-  // ── LEFT COLUMN ── (form panel, white, border-right)
-  html += '<div style="background:#fff;border:1px solid var(--border);border-radius:4px;overflow:hidden;display:flex;flex-direction:column">';
-  html += '<div style="background:var(--navy);color:#fff;padding:10px 16px;font-family:IBM Plex Mono,monospace;font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase">⚙ VOYAGE PARAMETERS</div>';
-  html += '<div style="padding:14px 16px;flex:1;overflow-y:auto">';
-  html += '<div style="margin:0 0 10px;display:flex;align-items:center;gap:8px"><div style="flex:1;height:1px;background:var(--border)"></div><div style="font-family:IBM Plex Mono,monospace;font-size:8px;font-weight:700;letter-spacing:1.5px;color:var(--text-light);text-transform:uppercase;white-space:nowrap">GEMİ & HIZ</div><div style="flex:1;height:1px;background:var(--border)"></div></div>';
+  // Left: inputs
+  html += '<div>';
   html += '<div class="form-row"><div><div class="form-label">Gemi</div><select class="form-input" id="rVessel">';
   ACTIVE_VESSELS.forEach(v => {
     html += '<option value="'+v.id+'" data-spd="'+v.speed_ballast+'" data-tpd="'+v.fuel_cons_sea_tpd+'" data-tpdi="'+v.fuel_cons_idle_tpd+'" data-fuel="'+v.fuel_allowed+'" data-tc="'+v.tc_rate_daily+'">'+v.name+' ($'+fmtN(v.tc_rate_daily)+'/d)</option>';
@@ -1678,8 +1674,7 @@ async function renderRouteOptimizer(){
   html += '<div><div class="form-label">Hız (kn)</div><input class="form-input" type="number" step="0.5" id="rSpeed" value="16"></div></div>';
   
   // Port sequence - comma separated input
-  html += '<div style="margin:12px 0 10px;display:flex;align-items:center;gap:8px"><div style="flex:1;height:1px;background:var(--border)"></div><div style="font-family:IBM Plex Mono,monospace;font-size:8px;font-weight:700;letter-spacing:1.5px;color:var(--text-light);text-transform:uppercase;white-space:nowrap">ROTA</div><div style="flex:1;height:1px;background:var(--border)"></div></div>';
-  html += '<div style="margin:0 0 10px"><div class="form-label">Liman Sırası (virgülle ayırın)</div>';
+  html += '<div style="margin:10px 0"><div class="form-label">Rota (liman isimlerini virgülle ayırın)</div>';
   html += '<input class="form-input" id="rPortsInput" placeholder="Ningbo, Jebel Ali, Jeddah, Barcelona" style="font-size:10px" oninput="updateRouteFromInput()">';
   html += '<div id="routePortsVisual" style="min-height:28px;padding:6px;margin-top:4px"></div>';
   html += '<div style="font-size:7px;color:var(--fog);margin-top:2px">Mevcut limanlar: '+portList.join(', ')+'</div></div>';
@@ -1688,8 +1683,7 @@ async function renderRouteOptimizer(){
   html += '<div id="portParams"></div>';
   
   // Cargo capacity input
-  html += '<div style="margin:12px 0 10px;display:flex;align-items:center;gap:8px"><div style="flex:1;height:1px;background:var(--border)"></div><div style="font-family:IBM Plex Mono,monospace;font-size:8px;font-weight:700;letter-spacing:1.5px;color:var(--text-light);text-transform:uppercase;white-space:nowrap">KARGO & REVENUE</div><div style="flex:1;height:1px;background:var(--border)"></div></div>';
-  html += '<div style="margin:0 0 10px;background:#fafafa;border:1px solid var(--border);border-radius:3px;padding:10px">';
+  html += '<div style="margin:10px 0;padding:10px;background:rgba(200,162,78,.03);border:1px solid var(--border);border-radius:6px">';
   html += '<div class="form-label">KARGO BİLGİSİ (Opsiyonel — gemi önerisi için)</div>';
   html += '<div class="form-row"><div><div class="form-label">Araç Adedi (Car/SUV)</div><input class="form-input" type="number" id="rCarCount" value="0"></div>';
   html += '<div><div class="form-label">H&H Adedi (Kamyon/İş Mak.)</div><input class="form-input" type="number" id="rHHCount" value="0"></div></div>';
@@ -1700,13 +1694,32 @@ async function renderRouteOptimizer(){
   
   html += '<div class="form-row"><div><div class="form-label">Revenue Beklentisi ($)</div><input class="form-input" type="number" id="rRevenue" value="0"></div>';
   html += '<div><div class="form-label">Kargo Adedi (araç — liman masrafı için)</div><input class="form-input" type="number" id="rCargoUnits" value="0" oninput="updatePortCostEstimates()"></div></div>';
+  html += '<div class="form-row"><div><div class="form-label">Başlangıç Tarihi</div><input class="form-input" type="date" id="rStartDate" value="'+new Date().toISOString().slice(0,10)+'"></div>';
+  html += '<div><div class="form-label">Laycan (gün)</div><input class="form-input" type="number" id="rLaycan" value="0" placeholder="0 = başlangıç tarihi sabit"></div></div>';
   
-  // PDA Reference Port Cost table — editable
-  html += '<div style="margin:12px 0 10px;display:flex;align-items:center;gap:8px"><div style="flex:1;height:1px;background:var(--border)"></div><div style="font-family:IBM Plex Mono,monospace;font-size:8px;font-weight:700;letter-spacing:1.5px;color:var(--text-light);text-transform:uppercase;white-space:nowrap">PORT COSTS (PDA)</div><div style="flex:1;height:1px;background:var(--border)"></div></div>';
-  html += '<div style="margin:0 0 10px;background:#fafafa;border:1px solid var(--border);border-radius:3px;padding:10px">';
+  // Small action buttons inline at bottom of left col
+  html += '<div style="display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">';
+  html += '<button class="btn btn-green" style="flex:1;padding:8px" onclick="calculateRoute()">▶ HESAPLA</button>';
+  html += '<button class="btn" style="width:80px;padding:8px;background:#f8fafc;color:var(--navy);border-color:var(--border)" onclick="clearRoute()">TEMİZLE</button>';
+  html += '</div>';
+  html += '</div>'; // close left col
+  
+  // Right col: PDA/EWRI/EU params (top, collapsible) + results (bottom)
+  html += '<div style="display:flex;flex-direction:column;gap:0">';
+  
+  // ── Params accordion ──
+  html += '<div style="background:#f8fafc;border:1px solid var(--border);border-radius:4px 4px 0 0;overflow:hidden" id="paramsAccordion">';
+  html += '<div style="display:flex;gap:0;border-bottom:1px solid var(--border)">';
+  html += '<button onclick="toggleParamTab(\'pdaTab\')" id="tabBtnPDA" style="flex:1;padding:8px 10px;font-size:9px;font-weight:600;background:#1e3a5f;color:#fff;border:none;cursor:pointer;letter-spacing:.5px;border-right:1px solid rgba(255,255,255,.1)">📋 PORT COSTS</button>';
+  html += '<button onclick="toggleParamTab(\'ewriTab\')" id="tabBtnEWRI" style="flex:1;padding:8px 10px;font-size:9px;font-weight:600;background:#1e3a5f;color:rgba(255,255,255,.6);border:none;cursor:pointer;letter-spacing:.5px;border-right:1px solid rgba(255,255,255,.1)">⚔️ EWRI</button>';
+  html += '<button onclick="toggleParamTab(\'euTab\')" id="tabBtnEU" style="flex:1;padding:8px 10px;font-size:9px;font-weight:600;background:#1e3a5f;color:rgba(255,255,255,.6);border:none;cursor:pointer;letter-spacing:.5px">🌍 EU ETS</button>';
+  html += '</div>';
+  
+  // PDA Tab
+  html += '<div id="pdaTab" style="display:block;padding:10px">';
   html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
   html += '<div class="form-label" style="margin:0">PDA Referans — Düzenlenebilir</div>';
-  html += '<span style="font-size:7px;color:var(--fog)">Referans: önceki PDA/fatura ortalaması. Kargo miktarına göre ölçeklenir.</span>';
+  html += '<span style="font-size:7px;color:var(--fog)">Kargo miktarına göre ölçeklenir.</span>';
   html += '</div>';
   html += '<div id="pdaPortCostTable" style="font-size:9px"></div>';
   html += '<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px;display:flex;justify-content:space-between">';
@@ -1714,30 +1727,26 @@ async function renderRouteOptimizer(){
   html += '<span id="pdaTotalDisplay" style="font-size:10px;font-weight:700;color:var(--red)">$0</span>';
   html += '</div>';
   html += '<div class="form-row" style="margin-top:6px">';
-  html += '<div><div class="form-label">Manuel Override Toplam ($)</div><input class="form-input" type="number" id="rPortCost" value="0" placeholder="0 = otomatik" oninput="updatePortCostDisplay()"></div>';
+  html += '<div><div class="form-label">Manuel Override ($)</div><input class="form-input" type="number" id="rPortCost" value="0" placeholder="0 = otomatik" oninput="updatePortCostDisplay()"></div>';
   html += '<div style="display:flex;align-items:flex-end"><button class="btn" style="font-size:8px;padding:4px 8px" onclick="useAutoPDA()">Otomatiği Kullan</button></div>';
-  html += '</div>';
   html += '</div></div>';
   
-  // EWRI panel (auto-detected, user can edit)
-  html += '<div style="margin:12px 0 10px;display:flex;align-items:center;gap:8px"><div style="flex:1;height:1px;background:var(--border)"></div><div style="font-family:IBM Plex Mono,monospace;font-size:8px;font-weight:700;letter-spacing:1.5px;color:var(--text-light);text-transform:uppercase;white-space:nowrap">EWRI / WAR RISK</div><div style="flex:1;height:1px;background:var(--border)"></div></div>';
-  html += '<div style="margin:0 0 10px;background:rgba(192,57,43,.02);border:1px solid rgba(192,57,43,.12);border-radius:3px;padding:10px">';
+  // EWRI Tab
+  html += '<div id="ewriTab" style="display:none;padding:10px">';
   html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
-  html += '<span style="font-size:10px;font-weight:600;color:var(--red);font-family:IBM Plex Mono,monospace;letter-spacing:0.5px">JWC WAR RISK</span>';
-  html += '<span style="font-size:7px;color:var(--fog)">JWC listesi — rota tespiti otomatik, değerler düzenlenebilir</span>';
+  html += '<span style="font-size:9px;font-weight:600;color:var(--red)">JWC War Risk</span>';
+  html += '<span style="font-size:7px;color:var(--fog)">Rota tespiti otomatik, değerler düzenlenebilir</span>';
   html += '</div>';
   html += '<div id="ewriZones" style="font-size:9px;color:var(--fog)">Rota girin → bölgeler otomatik tespit edilir</div>';
   html += '<div style="margin-top:6px;border-top:1px solid rgba(239,68,68,.1);padding-top:6px;display:flex;justify-content:space-between">';
   html += '<span style="font-size:9px;color:var(--fog)">EWRI Toplam</span>';
   html += '<span id="ewriTotalDisplay" style="font-size:10px;font-weight:700;color:var(--red)">$0</span>';
-  html += '</div>';
   html += '</div></div>';
   
-  // EU ETS + FuelEU panel
-  html += '<div style="margin:12px 0 10px;display:flex;align-items:center;gap:8px"><div style="flex:1;height:1px;background:var(--border)"></div><div style="font-family:IBM Plex Mono,monospace;font-size:8px;font-weight:700;letter-spacing:1.5px;color:var(--text-light);text-transform:uppercase;white-space:nowrap">EU REGULATIONS</div><div style="flex:1;height:1px;background:var(--border)"></div></div>';
-  html += '<div style="margin:0 0 10px;background:rgba(13,122,106,.02);border:1px solid rgba(13,122,106,.12);border-radius:3px;padding:10px">';
+  // EU ETS Tab
+  html += '<div id="euTab" style="display:none;padding:10px">';
   html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
-  html += '<span style="font-size:10px;font-weight:600;color:var(--teal);font-family:IBM Plex Mono,monospace;letter-spacing:0.5px">EU ETS + FUELEU</span>';
+  html += '<span style="font-size:9px;font-weight:600;color:var(--teal)">EU ETS + FuelEU 2025</span>';
   html += '<span style="font-size:7px;color:var(--fog)">Sadece EU limanı olan rotalar için aktif</span>';
   html += '</div>';
   html += '<div class="form-row" style="margin-bottom:6px">';
@@ -1746,20 +1755,16 @@ async function renderRouteOptimizer(){
   html += '</div>';
   html += '<div id="euCostDisplay" style="font-size:9px;color:var(--fog)">EU limanı olan rota girilince hesaplanır</div>';
   html += '</div>';
-
-  html += '</div></div>';
-  html += '<div style="margin-top:12px;display:grid;grid-template-columns:2fr 1fr;gap:8px"><button class="btn btn-green" onclick="calculateRoute()">▶ HESAPLA</button>';
-  html += '<button class="btn" style="background:#fff;color:var(--navy);border-color:var(--border)" onclick="clearRoute()">TEMİZLE</button></div>';
   
-  html += '</div></div>'; // close left col inner padding + left col
+  html += '</div>'; // close paramsAccordion
   
-  // ── RIGHT COLUMN ── (results)
-  html += '<div id="routeResults" style="padding:14px 16px;background:var(--bg)"><div style="color:var(--text-light);text-align:center;padding:60px 20px;font-size:11px;font-family:IBM Plex Sans,sans-serif">Rota ekleyip <strong>HESAPLA</strong> butonuna basın</div></div>';
-  html += '</div>'; // close grid
+  // Results area
+  html += '<div id="routeResults" style="border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;background:#fff;min-height:200px"><div style="color:var(--fog);text-align:center;padding:40px;font-size:10px">Rota ekleyip HESAPLA butonuna basın</div></div>';
+  html += '</div>'; // close flex column
+  html += '</div></div>'; // close g2 + pnl
   
   // === QUICK COMPARE (collapsible) ===
-  html += '<div style="max-width:1600px;margin:10px auto 0;padding:0 20px;display:flex;gap:8px">';
-  html += '<button class="btn" style="background:#fff;color:var(--navy);border-color:var(--border);font-size:9px;width:auto;padding:7px 16px" onclick="var el=document.getElementById(\'quickCompare\');el.style.display=el.style.display===\'none\'?\'block\':\'none\'">⚡ Hızlı Karşılaştırma</button>';
+  html += '<div style="margin-top:10px"><button class="btn" style="background:var(--deck);color:var(--navy);border-color:var(--border);font-size:8px" onclick="var el=document.getElementById(\'quickCompare\');el.style.display=el.style.display===\'none\'?\'block\':\'none\'">⚡ Hızlı Karşılaştırma (3 Rota)</button></div>';
   html += '<div id="quickCompare" style="display:none;margin-top:8px">';
   //
   html += '<div class="pnl mb"><div class="pnl-t">⚡ Hızlı Rota Karşılaştırma</div>';
@@ -1787,8 +1792,7 @@ async function renderRouteOptimizer(){
   html += '</div>'; // close quickCompare
   
   // === DISTANCE LOOKUP (collapsible) ===
-  html += '<button class="btn" style="background:#fff;color:var(--navy);border-color:var(--border);font-size:9px;width:auto;padding:7px 16px" onclick="var el=document.getElementById(\'distLookup\');el.style.display=el.style.display===\'none\'?\'block\':\'none\'">📏 Mesafe Tablosu (' + DISTANCES.length + ' kayıt)</button>';
-  html += '</div>';
+  html += '<div style="margin-top:8px"><button class="btn" style="background:var(--deck);color:var(--navy);border-color:var(--border);font-size:8px" onclick="var el=document.getElementById(\'distLookup\');el.style.display=el.style.display===\'none\'?\'block\':\'none\'">📏 Mesafe Tablosu (' + DISTANCES.length + ' kayıt)</button></div>';
   html += '<div id="distLookup" style="display:none;margin-top:8px">';
   //
   html += '<div class="pnl mb"><div class="pnl-t">📏 Mesafe Tablosu ('+DISTANCES.length+' kayıt, '+portList.length+' liman)</div>';
@@ -1806,7 +1810,9 @@ async function renderRouteOptimizer(){
   $('rVessel').addEventListener('change', function(){
     const opt = this.options[this.selectedIndex];
     $('rSpeed').value = opt.dataset.spd;
+    updatePortDates();
   });
+  $('rSpeed').addEventListener('input', function(){ updatePortDates(); });
   // Trigger initial
   const initOpt = $('rVessel').options[0];
   if(initOpt) $('rSpeed').value = initOpt.dataset.spd;
@@ -1885,8 +1891,24 @@ function renderRouteVisual(){
   h += '</div>';
   el.innerHTML = h;
   
-  // Port idle days (auto-filled from S-Insight data)
-  let ph = '<div style="margin-top:6px"><div class="form-label">Liman Bekleme Süreleri (gün) — S-Insight ortalamaları</div><div style="display:flex;flex-wrap:wrap;gap:6px">';
+  // Port idle days + start date for first port
+  const today = new Date().toISOString().slice(0,10);
+  const storedDate = $('rStartDate')?.value || today;
+  
+  let ph = '<div style="margin-top:8px">';
+  ph += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
+  ph += '<div class="form-label" style="margin:0">Liman Bekleme Süreleri (gün)</div>';
+  ph += '<span style="font-size:7px;color:var(--fog)">S-Insight ortalamaları</span>';
+  ph += '</div>';
+  
+  // Table layout
+  ph += '<table style="width:100%;border-collapse:collapse;font-size:9px">';
+  ph += '<thead><tr style="background:#f1f5f9">';
+  ph += '<th style="padding:4px 6px;text-align:left;border:1px solid #e2e8f0;font-weight:600">Liman</th>';
+  ph += '<th style="padding:4px 6px;text-align:center;border:1px solid #e2e8f0;font-weight:600">Bekleme (gün)</th>';
+  ph += '<th style="padding:4px 6px;text-align:center;border:1px solid #e2e8f0;font-weight:600">Varış / Kalkış Tarihi</th>';
+  ph += '</tr></thead><tbody>';
+  
   routePortList.forEach((p, i) => {
     const avgDays = getPortDuration(p);
     const hasData = (window.PORT_DURATIONS || []).some(pd => 
@@ -1894,14 +1916,31 @@ function renderRouteVisual(){
       p.toLowerCase().includes(pd.port_name.toLowerCase()) ||
       pd.port_name.toLowerCase().includes(p.toLowerCase())
     );
-    const borderColor = hasData ? '#bbf7d0' : '#fde68a';
-    const label = hasData ? avgDays.toFixed(1) + 'd ✓' : '2.0d ?';
-    ph += '<div style="text-align:center"><div style="font-size:7px;color:var(--text-light)">'+p.substring(0,10)+'</div>';
-    ph += '<input class="form-input" type="number" step="0.5" value="'+avgDays.toFixed(1)+'" style="width:55px;text-align:center;font-size:9px;border-color:'+borderColor+'" id="rIdle'+i+'">';
-    ph += '<div style="font-size:6px;color:var(--text-light)">'+label+'</div></div>';
+    const borderColor = hasData ? 'border-color:#bbf7d0' : 'border-color:#fde68a';
+    
+    ph += '<tr style="border-bottom:1px solid #f3f4f6">';
+    ph += '<td style="padding:4px 6px;border:1px solid #e2e8f0;font-weight:500">';
+    ph += p + (hasData ? ' <span style="color:#16a34a;font-size:7px">✓</span>' : ' <span style="color:#d97706;font-size:7px">~</span>');
+    ph += '</td>';
+    // Idle days input
+    ph += '<td style="padding:4px 6px;border:1px solid #e2e8f0;text-align:center">';
+    ph += '<input class="form-input" type="number" step="0.5" value="'+avgDays.toFixed(1)+'" style="width:55px;text-align:center;font-size:9px;'+borderColor+';margin:0" id="rIdle'+i+'" oninput="updatePortDates()">';
+    ph += '</td>';
+    // Date inputs — first port has start date editable
+    ph += '<td style="padding:4px 6px;border:1px solid #e2e8f0;text-align:center">';
+    if(i === 0) {
+      ph += '<input class="form-input" type="date" id="rPortDate0" value="'+storedDate+'" style="font-size:8px;margin:0;width:120px" oninput="updatePortDates();if($(\'rStartDate\'))$(\'rStartDate\').value=this.value">';
+    } else {
+      ph += '<span id="rPortDateDisplay'+i+'" style="font-family:IBM Plex Mono,monospace;color:var(--navy)">—</span>';
+    }
+    ph += '</td>';
+    ph += '</tr>';
   });
-  ph += '</div></div>';
+  
+  ph += '</tbody></table>';
+  ph += '</div>';
   $('portParams').innerHTML = ph;
+  updatePortDates();
 }
 
 function clearRoute(){
@@ -2267,6 +2306,72 @@ function useAutoPDA() {
 }
 function updatePortCostDisplay() {}
 
+function updatePortDates() {
+  if(!routePortList || routePortList.length === 0) return;
+  
+  // Get start date from first port date input or rStartDate
+  const firstDateEl = document.getElementById('rPortDate0');
+  const startDateStr = (firstDateEl?.value) || document.getElementById('rStartDate')?.value || new Date().toISOString().slice(0,10);
+  
+  // Update rStartDate in sync
+  const startDateMain = document.getElementById('rStartDate');
+  if(startDateMain && firstDateEl) startDateMain.value = firstDateEl.value;
+  
+  // Get speed and distances to estimate transit times
+  const speed = +($('rSpeed')?.value || 16);
+  if(!speed || !DISTANCES) return;
+  
+  function getDistBetween(from, to) {
+    const d = DISTANCES.find(d =>
+      (d.from_port === from && d.to_port === to) ||
+      (d.from_port === to && d.to_port === from)
+    );
+    return d?.distance_nm || 0;
+  }
+  
+  let cursor = new Date(startDateStr + 'T00:00:00');
+  
+  routePortList.forEach((port, i) => {
+    if(i === 0) {
+      // First port: cursor = arrival = startDate
+    } else {
+      // Add sea transit from previous port
+      const prevPort = routePortList[i-1];
+      const dist = getDistBetween(prevPort, port);
+      const seaDays = dist > 0 ? dist / (speed * 24) : 0;
+      cursor = new Date(cursor.getTime() + seaDays * 24 * 3600 * 1000);
+    }
+    
+    // Show arrival date for port i
+    const displayEl = document.getElementById('rPortDateDisplay'+i);
+    if(displayEl) {
+      const arrival = cursor.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      const idleDays = +($('rIdle'+i)?.value || 2);
+      const departure = new Date(cursor.getTime() + idleDays * 24 * 3600 * 1000);
+      const depStr = departure.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      displayEl.innerHTML = arrival + '<br><span style="font-size:7px;color:var(--fog)">→ ' + depStr + '</span>';
+    }
+    
+    // Move cursor past port idle time
+    const idleDays = +($('rIdle'+i)?.value || 2);
+    cursor = new Date(cursor.getTime() + idleDays * 24 * 3600 * 1000);
+  });
+}
+
+function toggleParamTab(tabId) {
+  const tabs = ['pdaTab', 'ewriTab', 'euTab'];
+  const btnMap = {'pdaTab':'tabBtnPDA', 'ewriTab':'tabBtnEWRI', 'euTab':'tabBtnEU'};
+  tabs.forEach(t => {
+    const el = document.getElementById(t);
+    const btn = document.getElementById(btnMap[t]);
+    if(el) el.style.display = (t === tabId) ? 'block' : 'none';
+    if(btn) {
+      btn.style.color = (t === tabId) ? '#fff' : 'rgba(255,255,255,.55)';
+      btn.style.borderBottom = (t === tabId) ? '2px solid var(--orange)' : '2px solid transparent';
+    }
+  });
+}
+
 // EWRI live preview (updates as route changes)
 function updateEWRIPreview() {
   if (!routePortList || routePortList.length < 2) return;
@@ -2613,152 +2718,221 @@ async function calculateRoute(){
   const dailyProfit = totalWithMargin > 0 ? profit / totalWithMargin : 0;
   const tce = dailyProfit + vessel.tc_rate_daily;
   
-  // ═══════ RENDER RESULTS ═══════
-  let rh = '<div style="padding:4px">';
+  // ═══════ RENDER RESULTS — Netpas style ═══════
   
-  // Header
-  const profitCls = profit >= 0 ? '#4ade80' : '#f87171';
+  // ── Date calculations ──
+  const startDateVal = $('rPortDate0')?.value || $('rStartDate')?.value || new Date().toISOString().slice(0,10);
+  const voyageStart = new Date(startDateVal + 'T00:00:00');
   
-  if(missingDist){
-    rh += '<div style="background:rgba(192,57,43,.08);border:1px solid rgba(192,57,43,.2);border-radius:3px;padding:7px 10px;margin-bottom:10px;font-size:9px;color:var(--red);font-family:IBM Plex Mono,monospace">⚠️ Bazı mesafeler eksik — kontrol edin</div>';
+  function addDays(date, days) {
+    const d = new Date(date);
+    d.setTime(d.getTime() + days * 24 * 3600 * 1000);
+    return d;
+  }
+  function fmtDate(date) {
+    if(!date || isNaN(date)) return '—';
+    return date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).replace(/ /g,' ');
+  }
+  function fmtDT(date) {
+    if(!date || isNaN(date)) return '—';
+    return date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ' ' +
+           date.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
   }
   
-  // KPI strip — navy bar (Concept B)
-  rh += '<div style="background:var(--navy);border-radius:4px;display:grid;grid-template-columns:repeat(4,1fr);margin-bottom:14px;overflow:hidden">';
-  rh += '<div style="padding:14px 16px;border-right:1px solid rgba(255,255,255,.08)">';
-  rh += '<div style="font-family:IBM Plex Mono,monospace;font-size:20px;font-weight:600;color:'+profitCls+'">'+fmt(profit)+'</div>';
-  rh += '<div style="font-family:IBM Plex Mono,monospace;font-size:7px;letter-spacing:1.5px;color:rgba(255,255,255,.4);text-transform:uppercase;margin-top:4px">Net Profit</div>';
-  rh += '<div style="font-size:8px;color:rgba(255,255,255,.25);margin-top:2px;font-family:IBM Plex Mono,monospace">'+vesselName+'</div></div>';
-  rh += '<div style="padding:14px 16px;border-right:1px solid rgba(255,255,255,.08)">';
-  rh += '<div style="font-family:IBM Plex Mono,monospace;font-size:20px;font-weight:600;color:#60a5fa">'+fmt(dailyProfit)+'</div>';
-  rh += '<div style="font-family:IBM Plex Mono,monospace;font-size:7px;letter-spacing:1.5px;color:rgba(255,255,255,.4);text-transform:uppercase;margin-top:4px">Daily Profit / gün</div>';
-  rh += '<div style="font-size:8px;color:rgba(255,255,255,.25);margin-top:2px;font-family:IBM Plex Mono,monospace">'+totalWithMargin.toFixed(1)+' gün toplam</div></div>';
-  rh += '<div style="padding:14px 16px;border-right:1px solid rgba(255,255,255,.08)">';
-  rh += '<div style="font-family:IBM Plex Mono,monospace;font-size:20px;font-weight:600;color:#fbbf24">'+fmt(tce)+'</div>';
-  rh += '<div style="font-family:IBM Plex Mono,monospace;font-size:7px;letter-spacing:1.5px;color:rgba(255,255,255,.4);text-transform:uppercase;margin-top:4px">TCE / day</div>';
-  rh += '<div style="font-size:8px;color:rgba(255,255,255,.25);margin-top:2px;font-family:IBM Plex Mono,monospace">'+fmtN(Math.round(totalDist))+' NM</div></div>';
-  rh += '<div style="padding:14px 16px">';
-  rh += '<div style="font-family:IBM Plex Mono,monospace;font-size:20px;font-weight:600;color:#fb923c">'+fmtN(Math.round(totalFuelMT))+'</div>';
-  rh += '<div style="font-family:IBM Plex Mono,monospace;font-size:7px;letter-spacing:1.5px;color:rgba(255,255,255,.4);text-transform:uppercase;margin-top:4px">MT Toplam</div>';
-  rh += '<div style="font-size:8px;color:rgba(255,255,255,.25);margin-top:2px;font-family:IBM Plex Mono,monospace">'+fmt(totalFuelCost)+' yakıt</div></div>';
+  // Build port rotation with cumulative dates
+  const portRotation = [];
+  let cursor = new Date(voyageStart);
+  
+  legs.forEach((l, i) => {
+    // Departure from 'from' port (first time)
+    if(i === 0) {
+      portRotation.push({
+        type: l.from === routePortList[0] ? 'Loading' : 'Ballast',
+        port: l.from,
+        dist: 0,
+        spd: speed,
+        seaDays: 0,
+        portDays: portFuelDetails[0]?.days || 2,
+        arrival: cursor,
+        departure: addDays(cursor, portFuelDetails[0]?.days || 2),
+        fuel: portFuelDetails[0]?.fuel?.fuel || '—',
+        portCost: getPDAcost(l.from, +(($('rCargoUnits')?.value)||0)),
+        isFirst: true
+      });
+      cursor = addDays(cursor, portFuelDetails[0]?.days || 2);
+    }
+    // Sea leg → arrival at 'to' port
+    const arrivalAtTo = addDays(cursor, l.sea || 0);
+    const pdIdx = i + 1;
+    const idleDays = portFuelDetails[pdIdx]?.days || (pdIdx < routePortList.length ? 2 : 0);
+    portRotation.push({
+      type: i === legs.length - 1 ? 'Discharging' : 'Loading',
+      port: l.to,
+      dist: l.dist || 0,
+      spd: speed,
+      seaDays: l.sea || 0,
+      portDays: idleDays,
+      arrival: arrivalAtTo,
+      departure: addDays(arrivalAtTo, idleDays),
+      fuel: l.fuel?.fuel || '—',
+      fuelMT: l.fuelMT || 0,
+      fuelCost: l.fuelCost || 0,
+      portFuel: portFuelDetails[pdIdx]?.fuel?.fuel || '—',
+      portFuelMT: portFuelDetails[pdIdx]?.mt || 0,
+      portCost: getPDAcost(l.to, +(($('rCargoUnits')?.value)||0)),
+      missing: l.missing
+    });
+    cursor = addDays(arrivalAtTo, idleDays);
+  });
+  
+  const voyageEnd = cursor;
+  const profitCls = profit >= 0 ? 'green' : 'red';
+  const profitColor = profit >= 0 ? '#16a34a' : '#dc2626';
+  
+  let rh = '<div style="font-family:IBM Plex Sans,sans-serif;font-size:12px">';
+  
+  // ── Missing dist warning ──
+  if(missingDist){
+    rh += '<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:3px;padding:6px 10px;margin-bottom:8px;font-size:11px;color:#92400e">⚠️ Bazı mesafeler eksik — sonuçlar tahmini</div>';
+  }
+  
+  // ═══════════════════════════════════
+  // PORT ROTATION TABLE (Netpas style)
+  // ═══════════════════════════════════
+  rh += '<div style="margin-bottom:12px">';
+  rh += '<div style="background:#1e3a5f;color:#fff;padding:7px 12px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border-radius:3px 3px 0 0;display:flex;justify-content:space-between;align-items:center">';
+  rh += '<span>PORT ROTATION</span>';
+  rh += '<span style="font-weight:400;font-size:9px;opacity:.7">'+fmtDT(voyageStart)+' → '+fmtDT(voyageEnd)+'  |  '+totalWithMargin.toFixed(1)+' days  |  '+fmtN(Math.round(totalDist))+' NM</span>';
   rh += '</div>';
   
-  // === LEG DETAIL TABLE ===
-  if(suezNeeded){
-    rh += '<div style="background:rgba(184,134,11,.06);border:1px solid rgba(184,134,11,.2);border-radius:3px;padding:8px 12px;margin-bottom:10px;font-size:9px;font-family:IBM Plex Mono,monospace;display:flex;align-items:center;justify-content:space-between">';
-    rh += '<span><b style="color:var(--amber)">⚡ SUEZ GEÇİŞİ</b> — '+suezTransits+' transit × '+fmt(getSuezCost())+'</span>';
-    rh += '<span style="font-weight:700;color:var(--amber)">= '+fmt(getSuezCost()*suezTransits)+'</span>';
-    rh += '</div>';
-  }
-  rh += '<div style="font-family:IBM Plex Mono,monospace;font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-light);margin:14px 0 6px;border-top:1px solid var(--border);padding-top:10px">Seyir Bacakları</div>';
-  rh += '<table class="tbl"><thead><tr><th>Bacak</th><th>NM</th><th>Gün</th><th>Yakıt</th><th>$/MT</th><th>MT</th><th>Maliyet</th><th>ECA</th></tr></thead><tbody>';
-  legs.forEach(l => {
-    const ecaFlag = (l.fuel.reason.includes('ECA') || l.fuel.reason.includes('eca')) ? '🟡' : '';
-    const fuelCls = l.fuel.fuel === 'HFO' ? 'green' : l.fuel.fuel === 'VLSFO' ? 'blue' : 'amber';
-    rh += '<tr>';
-    rh += '<td style="font-size:8px">'+l.from+' → '+l.to+'</td>';
-    rh += '<td class="'+(l.missing?'red':'blue')+'">'+(l.dist?fmtN(l.dist):'❌')+'</td>';
-    rh += '<td>'+(l.sea?l.sea.toFixed(1):'—')+'</td>';
-    rh += '<td class="'+fuelCls+'">'+l.fuel.fuel+'</td>';
-    rh += '<td>$'+(l.fuel.price||0)+'</td>';
-    rh += '<td>'+(l.fuelMT?Math.round(l.fuelMT):'—')+'</td>';
-    rh += '<td class="red">'+(l.fuelCost?fmt(l.fuelCost):'—')+'</td>';
-    rh += '<td>'+ecaFlag+'</td>';
+  rh += '<table style="width:100%;border-collapse:collapse;border:1px solid #d1d5db;border-top:none;font-size:10px">';
+  rh += '<thead><tr style="background:#f1f5f9;color:#374151">';
+  rh += '<th style="padding:5px 8px;text-align:left;border:1px solid #e2e8f0;width:28px">#</th>';
+  rh += '<th style="padding:5px 8px;text-align:left;border:1px solid #e2e8f0">Type</th>';
+  rh += '<th style="padding:5px 8px;text-align:left;border:1px solid #e2e8f0">Port</th>';
+  rh += '<th style="padding:5px 8px;text-align:right;border:1px solid #e2e8f0">NM</th>';
+  rh += '<th style="padding:5px 8px;text-align:right;border:1px solid #e2e8f0">Sea Days</th>';
+  rh += '<th style="padding:5px 8px;text-align:right;border:1px solid #e2e8f0">Port Days</th>';
+  rh += '<th style="padding:5px 8px;text-align:right;border:1px solid #e2e8f0">Fuel</th>';
+  rh += '<th style="padding:5px 8px;text-align:right;border:1px solid #e2e8f0">MT</th>';
+  rh += '<th style="padding:5px 8px;text-align:left;border:1px solid #e2e8f0">Arrival</th>';
+  rh += '<th style="padding:5px 8px;text-align:left;border:1px solid #e2e8f0">Departure</th>';
+  rh += '</tr></thead><tbody>';
+  
+  const typeColors = { 'Loading': '#dbeafe', 'Discharging': '#dcfce7', 'Ballast': '#fef9c3', 'Canal': '#fce7f3' };
+  
+  portRotation.forEach((row, idx) => {
+    const bgColor = typeColors[row.type] || '#fff';
+    const fuelLabel = row.isFirst ? (portFuelDetails[0]?.fuel?.fuel||'—') : (row.fuel||'—');
+    const mtLabel = row.isFirst ? Math.round(portFuelDetails[0]?.mt||0) : (row.fuelMT ? Math.round(row.fuelMT) : 0);
+    rh += '<tr style="background:'+bgColor+';border-bottom:1px solid #e2e8f0">';
+    rh += '<td style="padding:4px 8px;border:1px solid #e2e8f0;color:#6b7280;font-size:9px">'+(idx+1)+'</td>';
+    rh += '<td style="padding:4px 8px;border:1px solid #e2e8f0"><span style="display:inline-block;padding:1px 6px;border-radius:2px;font-size:9px;font-weight:600;background:'+(row.type==='Loading'?'#2563eb':row.type==='Discharging'?'#16a34a':row.type==='Canal'?'#9333ea':'#ca8a04')+';color:#fff">'+row.type+'</span></td>';
+    rh += '<td style="padding:4px 8px;border:1px solid #e2e8f0;font-weight:600">'+(row.missing?'<span style="color:#dc2626">❌ '+row.port+'</span>':row.port)+'</td>';
+    rh += '<td style="padding:4px 8px;border:1px solid #e2e8f0;text-align:right;color:#1d4ed8">'+(row.dist?fmtN(row.dist):'—')+'</td>';
+    rh += '<td style="padding:4px 8px;border:1px solid #e2e8f0;text-align:right">'+(row.seaDays?row.seaDays.toFixed(2):'—')+'</td>';
+    rh += '<td style="padding:4px 8px;border:1px solid #e2e8f0;text-align:right">'+(row.portDays||'—')+'</td>';
+    rh += '<td style="padding:4px 8px;border:1px solid #e2e8f0;text-align:right;color:'+(fuelLabel==='MGO'?'#d97706':fuelLabel==='HFO'?'#16a34a':'#2563eb')+'">'+fuelLabel+'</td>';
+    rh += '<td style="padding:4px 8px;border:1px solid #e2e8f0;text-align:right">'+mtLabel+'</td>';
+    rh += '<td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:9px;white-space:nowrap">'+fmtDT(row.arrival)+'</td>';
+    rh += '<td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:9px;white-space:nowrap">'+fmtDT(row.departure)+'</td>';
     rh += '</tr>';
   });
-  rh += '</tbody></table>';
   
-  // === PORT FUEL DETAIL ===
-  rh += '<div style="font-weight:600;color:var(--brass);font-size:9px;margin:10px 0 4px">LİMAN YAKITI</div>';
-  rh += '<table class="tbl"><thead><tr><th>Liman</th><th>Gün</th><th>Yakıt</th><th>$/MT</th><th>MT</th><th>Maliyet</th><th>Neden</th></tr></thead><tbody>';
-  portFuelDetails.forEach(pd => {
-    const fuelCls = pd.fuel.fuel === 'HFO' ? 'green' : pd.fuel.fuel === 'VLSFO' ? 'blue' : 'amber';
-    rh += '<tr><td>'+pd.port+'</td><td>'+pd.days+'</td>';
-    rh += '<td class="'+fuelCls+'">'+pd.fuel.fuel+'</td>';
-    rh += '<td>$'+pd.fuel.price+'</td>';
-    rh += '<td>'+Math.round(pd.mt)+'</td>';
-    rh += '<td class="red">'+fmt(pd.cost)+'</td>';
-    rh += '<td style="font-size:7px;color:var(--fog)">'+pd.fuel.reason+'</td></tr>';
-  });
-  rh += '</tbody></table>';
+  // Totals row
+  rh += '<tr style="background:#1e3a5f;color:#fff;font-weight:700">';
+  rh += '<td colspan="3" style="padding:5px 8px;border:1px solid #2d5a8a">TOTAL</td>';
+  rh += '<td style="padding:5px 8px;border:1px solid #2d5a8a;text-align:right">'+fmtN(Math.round(totalDist))+'</td>';
+  rh += '<td style="padding:5px 8px;border:1px solid #2d5a8a;text-align:right">'+totalSeaDays.toFixed(2)+'</td>';
+  rh += '<td style="padding:5px 8px;border:1px solid #2d5a8a;text-align:right">'+totalIdleDays.toFixed(1)+'</td>';
+  rh += '<td style="padding:5px 8px;border:1px solid #2d5a8a"></td>';
+  rh += '<td style="padding:5px 8px;border:1px solid #2d5a8a;text-align:right">'+fmtN(Math.round(totalFuelMT))+'</td>';
+  rh += '<td style="padding:5px 8px;border:1px solid #2d5a8a">'+fmtDT(voyageStart)+'</td>';
+  rh += '<td style="padding:5px 8px;border:1px solid #2d5a8a">'+fmtDT(voyageEnd)+'</td>';
+  rh += '</tr>';
+  rh += '</tbody></table></div>';
   
-  // === COST BREAKDOWN ===
-  rh += '<div class="divider"></div>';
+  // ═════════════════════════════════════
+  // OPERATION EXPENSE + RESULT (3-col row)
+  // ═════════════════════════════════════
+  rh += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">';
   
-  // Fuel price source indicator
-  const isRealAPI = LIVE_FUEL_PRICES && !([742, 1202, 620].includes(LIVE_FUEL_PRICES.VLSFO) && [742, 1202, 620].includes(LIVE_FUEL_PRICES.MGO));
-  const priceSource = isRealAPI ? '🟢 CANLI API' : '🟡 Güncel Piyasa Referansı (8 Mar 2026)';
-  const liveInfo = LIVE_FUEL_PRICES ? 
-    'MGO: $'+(LIVE_FUEL_PRICES.MGO||'?')+' | VLSFO: $'+(LIVE_FUEL_PRICES.VLSFO||'?')+' | HFO: $'+(LIVE_FUEL_PRICES.HFO||'?') :
-    'API baglantisi yok, Supabase/fallback fiyatlar kullaniliyor';
-    
-  rh += '<div style="font-weight:600;color:var(--brass);font-size:9px;margin-bottom:4px">MALİYET DAĞILIMI</div>';
-  rh += '<div style="background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.1);border-radius:4px;padding:4px 8px;margin-bottom:6px;font-size:8px"><span>'+priceSource+'</span><br><span style="color:var(--fog)">'+liveInfo+'</span></div>';
-  rh += '<div class="rr"><span class="rn">Gemi</span><span class="rv gold">'+vesselName+' ('+vessel.fuel_allowed+')</span></div>';
-  rh += '<div class="rr"><span class="rn">Hız</span><span class="rv">'+speed+' kn (gerçek ort: '+realAvgSpeed.toFixed(1)+' kn)</span></div>';
-  rh += '<div class="rr"><span class="rn">Seyir tüketimi</span><span class="rv">'+realSeaTPD.toFixed(1)+' TPD</span></div>';
-  rh += '<div class="rr"><span class="rn">Liman tüketimi</span><span class="rv">'+realPortTPD.toFixed(1)+' TPD</span></div>';
-  rh += '<div class="divider"></div>';
-  rh += '<div class="rr"><span class="rn">Deniz günü</span><span class="rv blue">'+totalSeaDays.toFixed(2)+'</span></div>';
-  rh += '<div class="rr"><span class="rn">Liman günü</span><span class="rv blue">'+totalIdleDays.toFixed(1)+'</span></div>';
-  rh += '<div class="rr"><span class="rn">Margin (%5)</span><span class="rv">'+marginDays+' gün</span></div>';
-  rh += '<div class="rr"><span class="rn"><b>Toplam süre</b></span><span class="rv blue"><b>'+totalWithMargin.toFixed(1)+' gün</b></span></div>';
-  rh += '<div class="divider"></div>';
-  rh += '<div class="rr"><span class="rn">Revenue</span><span class="rv green">'+fmt(revenue)+'</span></div>';
-  const seaFuelMT = totalFuelMT - portFuelDetails.reduce((s,p)=>s+p.mt,0);
-  const portFuelMT = portFuelDetails.reduce((s,p)=>s+p.mt,0);
-  rh += '<div class="rr"><span class="rn">Seyir yakıtı</span><span class="rv red">'+fmt(totalFuelCost - portFuelCost)+'<span style="font-size:7px;color:var(--fog)"> ('+fmtN(Math.round(seaFuelMT))+' MT)</span></span></div>';
-  rh += '<div class="rr"><span class="rn">Liman yakıtı</span><span class="rv red">'+fmt(portFuelCost)+'<span style="font-size:7px;color:var(--fog)"> ('+fmtN(Math.round(portFuelMT))+' MT)</span></span></div>';
-  rh += '<div class="rr"><span class="rn" style="color:var(--fog)">Toplam yakıt</span><span class="rv amber">'+fmtN(Math.round(totalFuelMT))+' MT</span></div>';
-  rh += '<div class="rr"><span class="rn">TC Hire ($'+fmtN(vessel.tc_rate_daily)+'/d × '+totalWithMargin.toFixed(1)+'d)</span><span class="rv red">'+fmt(hireCost)+'</span></div>';
-  rh += '<div class="rr"><span class="rn">Liman masrafı '+(portCostInput===(window._autoPDAtotal||autoTotalPC)?'(OTOMATİK PDA)':'(MANUEL)')+'</span><span class="rv red">'+fmt(portCostInput)+'</span></div>';
-  if(portCostInput === (window._autoPDAtotal||autoTotalPC)){
-    autoPortCosts.forEach(apc => {
-      rh += '<div style="font-size:7px;color:var(--fog);padding-left:12px">'+apc.port+': '+fmt(getPDAcost(apc.port, +($("rCargoUnits")?.value||0)))+'</div>';
-    });
-    if(suezNeeded) rh += '<div style="font-size:7px;color:var(--amber);padding-left:12px">⚡ Suez Canal: '+fmt(getSuezCost())+' × '+suezTransits+' geçiş = '+fmt(getSuezCost()*suezTransits)+'</div>';
+  // ── Col 1: Operation Expense ──
+  rh += '<div style="border:1px solid #d1d5db;border-radius:3px;overflow:hidden">';
+  rh += '<div style="background:#374151;color:#fff;padding:6px 10px;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Operation Expense</div>';
+  
+  function opRow(label, value, color) {
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 10px;border-bottom:1px solid #f3f4f6">' +
+           '<span style="font-size:10px;color:#374151">'+label+'</span>' +
+           '<span style="font-size:10px;font-weight:600;color:'+(color||'#111')+'">'+value+'</span></div>';
   }
   
-  // EWRI
-  if(ewriCost > 0){
-    rh += '<div class="rr" style="border-top:1px solid rgba(239,68,68,.1);margin-top:4px">';
-    rh += '<span class="rn" style="color:var(--red)">⚔️ EWRI / War Risk</span><span class="rv red">'+fmt(ewriCost)+'</span></div>';
-    ewriResult.details.forEach(d => {
-      const transitTxt = d.transits > 1 ? ' × '+d.transits+' geçiş' : '';
-      rh += '<div style="font-size:7px;color:var(--fog);padding-left:12px">'+d.name+': '+d.rate+'%'+transitTxt+' × $'+fmtN(d.vesselVal)+' = $'+fmtN(d.grossCost)+' → NCB %50 → <b>'+fmt(d.cost)+'</b></div>';
-    });
-  } else {
-    rh += '<div class="rr"><span class="rn" style="color:var(--green)">✅ EWRI</span><span class="rv green">$0 — JWC bölgesi yok</span></div>';
-  }
-  
-  // EU ETS + FuelEU
-  if(euResult.hasEU){
-    rh += '<div class="rr" style="border-top:1px solid rgba(16,185,129,.1);margin-top:4px">';
-    rh += '<span class="rn" style="color:var(--teal)">🌍 EU ETS (2025 — %70 kapsam)</span><span class="rv amber">'+fmt(euResult.etsUSD)+'</span></div>';
-    rh += '<div style="font-size:7px;color:var(--fog);padding-left:12px">'+(euResult.etsCO2.toFixed(1))+' tCO₂ × €'+etsPriceEur+'/tCO₂ × '+eurUsd+' = '+fmt(euResult.etsUSD)+'</div>';
-    if(euResult.fuelEUpenaltyUSD > 0){
-      rh += '<div class="rr"><span class="rn" style="color:var(--teal)">🌍 FuelEU Penalty</span><span class="rv amber">'+fmt(euResult.fuelEUpenaltyUSD)+'</span></div>';
-      rh += '<div style="font-size:7px;color:var(--fog);padding-left:12px">Gerçek: '+euResult.actualGHGintensity.toFixed(1)+' gCO₂eq/MJ | Hedef: '+euResult.ghgTarget+' | Fark: '+euResult.shortfall.toFixed(2)+' gCO₂/MJ × '+fmtN(Math.round(euResult.fuelEUconsumed.energy_gj*1000))+' MJ = '+fmtN(Math.round(euResult.excessTco2))+' tCO₂eq excess</div>';
-    } else {
-      rh += '<div class="rr"><span class="rn" style="color:var(--green)">✅ FuelEU</span><span class="rv green">Ceza yok (hedef altında)</span></div>';
-    }
-    rh += '<div class="rr"><span class="rn">EU toplam regülasyon maliyeti</span><span class="rv amber">'+fmt(euTotalCost)+'</span></div>';
-  } else {
-    rh += '<div class="rr"><span class="rn" style="color:var(--green)">✅ EU ETS/FuelEU</span><span class="rv green">$0 — EU limanı yok</span></div>';
-  }
-  
-  rh += '<div class="rr"><span class="rn"><b>Toplam maliyet</b></span><span class="rv red"><b>'+fmt(totalCost)+'</b></span></div>';
-  rh += '<div class="divider"></div>';
-  rh += '<div class="rr"><span class="rn" style="font-size:12px"><b>PROFIT</b></span><span class="rv '+profitCls+'" style="font-size:14px"><b>'+fmt(profit)+'</b></span></div>';
-  rh += '<div class="rr"><span class="rn"><b>Daily Profit</b></span><span class="rv '+profitCls+'"><b>'+fmt(dailyProfit)+'/gün</b></span></div>';
-  rh += '<div class="rr"><span class="rn"><b>TCE</b></span><span class="rv teal"><b>'+fmt(tce)+'/gün</b></span></div>';
-  
-  rh += '<div class="divider"></div>';
-  rh += '<button class="btn btn-green" style="width:100%;margin-top:4px;font-size:10px" onclick="exportRouteToExcel()">&#128229; Excel Aktar (Voyage Estimate)</button>';
-  
+  rh += opRow('TC Hire/Day', '$'+fmtN(vessel.tc_rate_daily));
+  rh += opRow('Total TC Hire', fmt(hireCost), '#dc2626');
+  rh += opRow('Port Charges', fmt(portCostInput > 0 ? portCostInput : autoTotalPC), '#dc2626');
+  if(suezNeeded) rh += opRow('Suez Canal (×'+suezTransits+')', fmt(getSuezCost()*suezTransits), '#dc2626');
+  if(ewriCost>0) rh += opRow('EWRI/War Risk', fmt(ewriCost), '#dc2626');
+  if(euResult.hasEU) rh += opRow('EU ETS+FuelEU', fmt(euTotalCost), '#dc2626');
+  rh += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:#fef2f2">' +
+        '<span style="font-size:10px;font-weight:700">Op. Expense</span>' +
+        '<span style="font-size:11px;font-weight:700;color:#dc2626">'+fmt(totalCost - totalFuelCost)+'</span></div>';
   rh += '</div>';
   
-  // Sonuçları export için sakla
+  // ── Col 2: Bunker Expense ──
+  rh += '<div style="border:1px solid #d1d5db;border-radius:3px;overflow:hidden">';
+  rh += '<div style="background:#374151;color:#fff;padding:6px 10px;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Bunker Expense</div>';
+  
+  const fuelBreakdown = {};
+  legs.forEach(l => {
+    const k = l.fuel?.fuel;
+    if(!fuelBreakdown[k]) fuelBreakdown[k] = {mt:0, cost:0, price:l.fuel?.price||0};
+    fuelBreakdown[k].mt += l.fuelMT||0;
+    fuelBreakdown[k].cost += l.fuelCost||0;
+  });
+  portFuelDetails.forEach(pd => {
+    const k = pd.fuel?.fuel;
+    if(!fuelBreakdown[k]) fuelBreakdown[k] = {mt:0, cost:0, price:pd.fuel?.price||0};
+    fuelBreakdown[k].mt += pd.mt||0;
+    fuelBreakdown[k].cost += pd.cost||0;
+  });
+  
+  Object.entries(fuelBreakdown).forEach(([fuel, d]) => {
+    rh += '<div style="display:flex;justify-content:space-between;padding:3px 10px;border-bottom:1px solid #f3f4f6">' +
+          '<span style="font-size:9px;color:#6b7280">'+fuel+'</span>' +
+          '<span style="font-size:9px;color:#374151">'+fmtN(Math.round(d.mt))+' MT @ $'+d.price+'</span></div>';
+    rh += opRow(fuel+' Cost', fmt(d.cost), '#dc2626');
+  });
+  
+  const isRealAPI = LIVE_FUEL_PRICES && !([742, 1202, 620].includes(LIVE_FUEL_PRICES.VLSFO));
+  rh += '<div style="padding:4px 10px;font-size:8px;color:#9ca3af;border-bottom:1px solid #f3f4f6">'+(isRealAPI?'🟢 Live prices':'🟡 Reference prices (Mar 2026)')+'</div>';
+  rh += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:#fef2f2">' +
+        '<span style="font-size:10px;font-weight:700">Bunker Total</span>' +
+        '<span style="font-size:11px;font-weight:700;color:#dc2626">'+fmt(totalFuelCost)+'</span></div>';
+  rh += '</div>';
+  
+  // ── Col 3: Result ──
+  rh += '<div style="border:1px solid #d1d5db;border-radius:3px;overflow:hidden">';
+  rh += '<div style="background:#1e3a5f;color:#fff;padding:6px 10px;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase">Result</div>';
+  
+  rh += opRow('Revenue', fmt(revenue), '#16a34a');
+  rh += opRow('Op. Expense', fmt(totalCost - totalFuelCost));
+  rh += opRow('Bunker', fmt(totalFuelCost));
+  rh += '<div style="height:1px;background:#e5e7eb;margin:2px 0"></div>';
+  rh += opRow('Total Expense', fmt(totalCost), '#dc2626');
+  rh += '<div style="height:1px;background:#e5e7eb;margin:2px 0"></div>';
+  rh += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:'+(profit>=0?'#f0fdf4':'#fef2f2')+'">' +
+        '<span style="font-size:11px;font-weight:700">PROFIT</span>' +
+        '<span style="font-size:16px;font-weight:700;color:'+profitColor+'">'+fmt(profit)+'</span></div>';
+  rh += opRow('Daily Profit', fmt(dailyProfit)+'/day', profitColor);
+  rh += opRow('TCE', fmt(tce)+'/day', '#d97706');
+  rh += opRow('Duration', totalWithMargin.toFixed(1)+' days (incl. 5% margin)');
+  rh += '</div>';
+  
+  rh += '</div>'; // close 3-col grid
+  
+  // Excel button — will be followed by speed opt
+  rh += '<div style="margin-top:8px"><button class="btn btn-green" style="width:100%;font-size:10px" onclick="exportRouteToExcel()">&#128229; Excel Aktar (Voyage Estimate)</button></div>';
+
   window._lastRouteResult = {
     vessel: vesselName, speed, revenue,
     totalDays: totalWithMargin, totalDist, totalSeaDays, totalIdleDays,
@@ -2778,9 +2952,11 @@ async function calculateRoute(){
   const vesselCurve = (window.SPEED_CURVES || []).filter(sc => sc.vessel_name === vesselName);
   
   if(vesselCurve.length >= 1 && totalDist > 0){
-    rh += '<div class="divider"></div>';
-    rh += '<div style="font-weight:600;color:var(--navy);font-size:10px;margin:8px 0 6px">⚡ HIZ OPTİMİZASYONU — ' + vesselName + '</div>';
-    rh += '<div style="font-size:9px;color:var(--text-mid);margin-bottom:8px">Aynı rota, farklı hızlarda: yakıt tasarrufu vs hire artışı trade-off analizi</div>';
+    rh += '<div style="margin:10px 0 4px">';
+    rh += '<button class="btn" style="background:#f8fafc;color:var(--navy);border:1px solid #d1d5db;font-size:9px;padding:5px 14px;border-radius:3px" onclick="var el=document.getElementById(\'speedOptPanel\');el.style.display=el.style.display===\'none\'?\'block\':\'none\'">⚡ Hız Optimizasyonu</button>';
+    rh += '</div>';
+    rh += '<div id="speedOptPanel" style="display:none">';
+    rh += '<div style="background:#1e3a5f;color:#fff;padding:7px 12px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border-radius:3px 3px 0 0">HIZ OPTİMİZASYONU — ' + vesselName + '</div>';
     
     // Calculate P&L at each available speed
     const speedResults = [];
@@ -3079,7 +3255,8 @@ async function calculateRoute(){
     rh += '</div>';
   }
   
-  rh += '</div>';
+  rh += '</div>'; // close speedOptPanel
+  
   $('routeResults').innerHTML = rh;
 }
 
