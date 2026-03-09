@@ -749,7 +749,7 @@ async function renderDecision(){
 // ═══════════════════════════════════════
 // TAB 5: FUEL
 // ═══════════════════════════════════════
-const PORT_MAP={'SGSIN':'Singapore','NLRTM':'Rotterdam','USHOU':'Houston','AEFJR':'Fujairah','CNHOK':'Hong Kong','USLAX':'LA/Long Beach','USNYC':'New York','BRSSZ':'Santos'};
+const PORT_MAP={'SGSIN':'Singapore','NLRTM':'Rotterdam','USHOU':'Houston','AEFUJ':'Fujairah','CNHOK':'Hong Kong','USLAX':'LA/Long Beach','USNYC':'New York','BRSSZ':'Santos'};
 const FUEL_FALLBACK={VLSFO:{Singapore:822.50,Rotterdam:631.50,Houston:668,Fujairah:742.50},MGO:{Singapore:1383,Rotterdam:1053.50,Houston:1138.50,Fujairah:1202},HFO:{Singapore:722,Rotterdam:490,Houston:510,Fujairah:620}};
 
 async function renderFuel(){
@@ -773,7 +773,7 @@ async function renderFuel(){
 
 async function fetchLiveFuel(){
   try{
-    const ports=['SGSIN','AEFJR','NLRTM','USHOU'];
+    const ports=['SGSIN','AEFUJ','NLRTM','USHOU'];
     let liveHtml='';
     for(const port of ports){
       try{
@@ -842,7 +842,7 @@ async function initTicker(){
   const fallback=[{g:'VLSFO',p:'Singapore',pr:822.5,ch:'+127'},{g:'VLSFO',p:'Fujairah',pr:742.5,ch:'+51'},{g:'MGO',p:'Singapore',pr:1383,ch:'+226'},{g:'MGO',p:'Fujairah',pr:1202,ch:'+41'},{g:'HFO',p:'Singapore',pr:722,ch:'+92'},{g:'VLSFO',p:'Rotterdam',pr:631.5,ch:'+16'},{g:'MGO',p:'Rotterdam',pr:1053.5,ch:'+27'}];
   try{
     const items=[];
-    for(const port of ['SGSIN','AEFJR','NLRTM']){
+    for(const port of ['SGSIN','AEFUJ','NLRTM']){
       try{
         const r=await fetch(OIL_PROXY + '/oil/bunker?port=' + port);
         if(r.ok){const d=await r.json();const nm=PORT_MAP[port];if(d.data){const f=d.data.fuel_prices||d.data.fuels||{};if(f.VLSFO)items.push({g:'VLSFO',p:nm,pr:f.VLSFO,ch:'LIVE'});if(f.MGO_05S||f.MGO)items.push({g:'MGO',p:nm,pr:f.MGO_05S||f.MGO,ch:'LIVE'});if(f.HFO_380)items.push({g:'HFO',p:nm,pr:f.HFO_380,ch:'LIVE'});}}
@@ -1654,7 +1654,7 @@ async function fetchLiveFuelPrices(){
   }
   
   // Direct fetch from OilPriceAPI
-  const ports = ['AEFJR','SGSIN','NLRTM'];
+  const ports = ['AEFUJ','SGSIN','NLRTM'];
   for(const port of ports){
     try {
       const resp = await fetch(OIL_PROXY + '/oil/bunker?port=' + port, {
