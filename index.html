@@ -3017,58 +3017,54 @@ async function aisLoadVessels() {
   }
 }
 
-let aisPollInterval = null;
-
 function aisConnectWS(mmsiList) {
-  // WebSocket yerine Netlify Function polling kullan
-  if (aisPollInterval) clearInterval(aisPollInterval);
-  
-  aisSetWS('connecting', '🔄 Yükleniyor...');
-  
-  async function fetchPositions() {
-    try {
-      const r = await fetch('https://ais-proxy-x31h.onrender.com/positions');
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const data = await r.json();
-      
-      aisSetWS('conn', '🟢 Canlı');
-      aisHideLoading();
-      
-      // Her gemi için pozisyonu işle
-      Object.values(data.positions || {}).forEach(pos => {
-        if (!pos.mmsi || !aisVessels[pos.mmsi]) return;
-        // MetaData formatına çevir
-        const fakeMsg = {
-          MetaData: {
-            MMSI: pos.mmsi,
-            latitude: pos.lat,
-            longitude: pos.lon,
-            ShipName: pos.name,
-          },
-          Message: {
-            PositionReport: {
-              Sog: pos.sog,
-              Cog: pos.cog,
-              TrueHeading: pos.heading,
-              NavigationalStatus: pos.navStatus,
-            },
-            ShipStaticData: {
-              Destination: pos.destination,
-            }
-          },
-          MessageType: pos.navStatus != null ? 'PositionReport' : 'ShipStaticData',
-        };
-        aisHandleMsg(fakeMsg);
-      });
-    } catch(err) {
-      console.warn('[AIS] Fetch hatası:', err.message);
-      aisSetWS('', '⚠️ Güncelleme hatası');
-    }
+  // Önceki bağlantıyı temizle
+  if (aisWS) {
+    try { aisWS.onopen = aisWS.onclose = aisWS.onerror = aisWS.onmessage = null; aisWS.close(); } catch(e){}
+    aisWS = null;
   }
-  
-  // İlk çağrı hemen, sonra her 30 saniyede bir
-  fetchPositions();
-  aisPollInterval = setInterval(fetchPositions, 30000);
+
+  aisSetWS('connecting', '🔄 Bağlanıyor...');
+  console.log('[AIS] WS açılıyor, MMSI:', mmsiList.length);
+
+  const ws = new WebSocket('wss://stream.aisstream.io/v0/stream');
+  aisWS = ws;
+
+  ws.onopen = () => {
+    if (aisWS !== ws) return;
+    console.log('[AIS] ✅ Açık, subscribe gönderiliyor');
+    aisSetWS('conn', '🟢 Canlı');
+    ws.send(JSON.stringify({
+      APIKey: AISSTREAM_KEY,
+      BoundingBoxes: [[[-90, -180], [90, 180]]],
+      FiltersShipMMSI: mmsiList.map(String),
+      FilterMessageTypes: ['PositionReport', 'ShipStaticData'],
+    }));
+    aisHideLoading();
+  };
+
+  ws.onmessage = (e) => {
+    if (aisWS !== ws) return;
+    try { aisHandleMsg(JSON.parse(e.data)); } catch(err) {}
+  };
+
+  ws.onclose = (ev) => {
+    if (aisWS !== ws) return;
+    console.warn('[AIS] Kapandı:', ev.code);
+    aisSetWS('', '⚠️ Bağlantı kesildi');
+    aisHideLoading();
+    if (ev.code !== 1000) {
+      setTimeout(() => {
+        if (aisWS === ws) aisConnectWS(mmsiList);
+      }, 10000);
+    }
+  };
+
+  ws.onerror = () => {
+    if (aisWS !== ws) return;
+    console.error('[AIS] Hata');
+    aisHideLoading();
+  };
 }
 
 function aisHandleMsg(msg) {
