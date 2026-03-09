@@ -1684,18 +1684,60 @@ async function renderRouteOptimizer(){
   
   // Cargo capacity input
   html += '<div style="margin:10px 0;padding:10px;background:rgba(200,162,78,.03);border:1px solid var(--border);border-radius:6px">';
-  html += '<div class="form-label">KARGO BİLGİSİ (Opsiyonel — gemi önerisi için)</div>';
-  html += '<div class="form-row"><div><div class="form-label">Araç Adedi (Car/SUV)</div><input class="form-input" type="number" id="rCarCount" value="0" oninput="renderPDATable()"></div>';
-  html += '<div><div class="form-label">H&H Adedi (Kamyon/İş Mak.)</div><input class="form-input" type="number" id="rHHCount" value="0" oninput="renderPDATable()"></div></div>';
-  html += '<div class="form-row"><div><div class="form-label">H&H Ort. Yükseklik (m)</div><input class="form-input" type="number" step="0.1" id="rHHHeight" value="3.5"></div>';
-  html += '<div><div class="form-label">Toplam SQM İhtiyacı</div><input class="form-input" type="number" id="rSQMNeed" value="0"></div></div>';
-  html += '<div style="font-size:7px;color:var(--fog);margin-top:4px">Packing list yüklemek için Excel Yükle sekmesini kullanın. Burada hızlı özet giriş yapılabilir.</div>';
+  html += '<div class="form-label" style="margin-bottom:6px">KARGO & GELİR BİLGİSİ</div>';
+  
+  // ── Mode selector: Detaylı vs Hızlı ──
+  html += '<div style="display:flex;gap:0;margin-bottom:8px;border:1px solid var(--border);border-radius:4px;overflow:hidden">';
+  html += '<button id="cargoModeDetailed" onclick="setCargoMode(\'detailed\')" style="flex:1;padding:5px;font-size:8px;font-weight:600;background:#1e3a5f;color:#fff;border:none;cursor:pointer">📦 Detaylı (POL→POD)</button>';
+  html += '<button id="cargoModeQuick" onclick="setCargoMode(\'quick\')" style="flex:1;padding:5px;font-size:8px;font-weight:600;background:var(--deck);color:var(--text-mid);border:none;cursor:pointer">⚡ Hızlı (Trade Lane)</button>';
+  html += '<button id="cargoModeManual" onclick="setCargoMode(\'manual\')" style="flex:1;padding:5px;font-size:8px;font-weight:600;background:var(--deck);color:var(--text-mid);border:none;cursor:pointer">✏️ Manuel Toplam</button>';
   html += '</div>';
   
+  // ── DETAILED MODE: POL → POD cargo entries ──
+  html += '<div id="cargoDetailed" style="display:block">';
+  html += '<div id="cargoLegsContainer"></div>';
+  html += '<button class="btn" style="font-size:7px;padding:3px 8px;margin-top:4px" onclick="addCargoLeg()">+ Yük Ekle</button>';
+  html += '<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:4px;display:flex;justify-content:space-between">';
+  html += '<span style="font-size:8px;color:var(--fog)">Detaylı Toplam Gelir</span>';
+  html += '<span id="cargoDetailedTotal" style="font-size:10px;font-weight:700;color:var(--green)">$0</span>';
+  html += '</div>';
+  html += '<div style="margin-top:4px;display:flex;justify-content:space-between">';
+  html += '<span style="font-size:8px;color:var(--fog)">Toplam Araç / H&H</span>';
+  html += '<span id="cargoDetailedUnits" style="font-size:9px;font-weight:600;color:var(--text-mid)">0 / 0</span>';
+  html += '</div>';
+  html += '</div>';
+  
+  // ── QUICK MODE: Trade Lane based ──
+  html += '<div id="cargoQuick" style="display:none">';
+  html += '<div style="font-size:7px;color:var(--fog);margin-bottom:6px">Bölge bazlı navlun referansı — rotaya göre otomatik tespit veya manuel seçim</div>';
+  html += '<div id="tradeLaneContainer"></div>';
+  html += '<div style="margin-top:4px"><button class="btn" style="font-size:7px;padding:3px 8px" onclick="addTradeLane()">+ Trade Lane Ekle</button></div>';
+  html += '<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:4px;display:flex;justify-content:space-between">';
+  html += '<span style="font-size:8px;color:var(--fog)">Trade Lane Toplam Gelir</span>';
+  html += '<span id="tradeLaneTotal" style="font-size:10px;font-weight:700;color:var(--green)">$0</span>';
+  html += '</div>';
+  html += '</div>';
+  
+  // ── MANUAL MODE: Single revenue input (legacy) ──
+  html += '<div id="cargoManual" style="display:none">';
   html += '<div class="form-row"><div><div class="form-label">Revenue Beklentisi ($)</div><input class="form-input" type="number" id="rRevenue" value="0"></div>';
-  html += '<div><div class="form-label">Kargo Adedi (araç — liman masrafı için)</div><input class="form-input" type="number" id="rCargoUnits" value="0" oninput="updatePortCostEstimates()"></div></div>';
-  html += '<div class="form-row"><div><div class="form-label">Başlangıç Tarihi</div><input class="form-input" type="date" id="rStartDate" value="'+new Date().toISOString().slice(0,10)+'"></div>';
+  html += '<div><div class="form-label">Kargo Adedi (araç — PDA için)</div><input class="form-input" type="number" id="rCargoUnits" value="0" oninput="updatePortCostEstimates()"></div></div>';
+  html += '</div>';
+  
+  // ── Hidden summary fields (always present, auto-synced) ──
+  html += '<input type="hidden" id="rCarCount" value="0">';
+  html += '<input type="hidden" id="rHHCount" value="0">';
+  
+  html += '<div class="form-row" style="margin-top:8px">';
+  html += '<div><div class="form-label">H&H Ort. Yükseklik (m)</div><input class="form-input" type="number" step="0.1" id="rHHHeight" value="3.5"></div>';
+  html += '<div><div class="form-label">Toplam SQM İhtiyacı</div><input class="form-input" type="number" id="rSQMNeed" value="0"></div></div>';
+  
+  html += '<div class="form-row" style="margin-top:4px">';
+  html += '<div><div class="form-label">Başlangıç Tarihi</div><input class="form-input" type="date" id="rStartDate" value="'+new Date().toISOString().slice(0,10)+'"></div>';
   html += '<div><div class="form-label">Laycan (gün)</div><input class="form-input" type="number" id="rLaycan" value="0" placeholder="0 = başlangıç tarihi sabit"></div></div>';
+  
+  html += '<div style="font-size:7px;color:var(--fog);margin-top:4px">Packing list yüklemek için Excel Yükle sekmesini kullanın.</div>';
+  html += '</div>';
   
   // Small action buttons inline at bottom of left col
   html += '<div style="display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">';
@@ -2302,9 +2344,10 @@ function getSelectedVesselName() {
 // PDA hesapla: GT ölçeklemeli, car/HH ayrımı
 window.PDA_OVERRIDES = {};
 
-function getPDAcost(portName, carCount, hhCount, vesselGT) {
-  // Manuel override varsa direkt dön
-  const ov = window.PDA_OVERRIDES[portName];
+function getPDAcost(portName, carCount, hhCount, vesselGT, overrideKey) {
+  // Manuel override varsa direkt dön — overrideKey index bazlı unique key
+  const ovKey = overrideKey || portName;
+  const ov = window.PDA_OVERRIDES[ovKey];
   if (ov !== undefined) return { total: ov, breakdown: null, override: true };
 
   // Liman bul
@@ -2359,8 +2402,10 @@ function renderPDATable() {
   html += '</tr></thead><tbody>';
 
   let total = 0;
-  routePortList.forEach(port => {
-    const r = getPDAcost(port, effectiveCar, effectiveHH, gt);
+  routePortList.forEach((port, idx) => {
+    // Her port call'a unique key: "0:Ningbo", "1:Jebel Ali", "4:Ningbo" vs.
+    const callKey = idx + ':' + port;
+    const r = getPDAcost(port, effectiveCar, effectiveHH, gt, callKey);
     const key = Object.keys(PDA_REFERENCE).find(k =>
       port.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(port.toLowerCase())
     );
@@ -2377,8 +2422,12 @@ function renderPDATable() {
       else { confLabel = '~'; confCls = 'color:var(--amber)'; }
     }
 
+    // Port call numarası göster (aynı liman tekrarlarsa)
+    const portCount = routePortList.filter(p => p === port).length;
+    const portLabel = portCount > 1 ? port + ' #' + (routePortList.slice(0, idx + 1).filter(p => p === port).length) : port;
+
     html += '<tr>';
-    html += '<td style="font-weight:600;font-size:9px">' + port + '</td>';
+    html += '<td style="font-weight:600;font-size:9px">' + portLabel + '</td>';
     if (r.breakdown && !hasOverride) {
       html += '<td style="font-size:7px;color:var(--text-mid)">$' + fmtN(r.breakdown.base) + '<br><span style="color:var(--fog)">GT×' + r.breakdown.gtRatio + '</span></td>';
       html += '<td style="font-size:7px;color:var(--blue)">' + (r.breakdown.carCost > 0 ? '$' + fmtN(r.breakdown.carCost) : '—') + '</td>';
@@ -2388,9 +2437,11 @@ function renderPDATable() {
     }
     html += '<td class="' + (hasOverride ? 'amber' : r.unknown ? 'red' : 'green') + '" style="font-weight:700;font-size:10px">$' + fmtN(r.total) + '</td>';
     html += '<td style="font-size:8px;' + confCls + '">' + confLabel + '</td>';
+    // Escape callKey for JS string
+    const safeKey = callKey.replace(/'/g, "\\'");
     html += '<td><input type="number" style="width:70px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px" ';
-    html += 'placeholder="Manuel" value="' + (hasOverride ? window.PDA_OVERRIDES[port] : '') + '" ';
-    html += 'onchange="setPDAOverride(\'' + port + '\', this.value)">';
+    html += 'placeholder="Manuel" value="' + (hasOverride ? window.PDA_OVERRIDES[callKey] : '') + '" ';
+    html += 'onchange="setPDAOverride(\'' + safeKey + '\', this.value)">';
     html += '</td></tr>';
   });
 
@@ -2406,10 +2457,10 @@ function renderPDATable() {
   window._autoPDAtotal = total;
 }
 
-function setPDAOverride(port, val) {
+function setPDAOverride(callKey, val) {
   const v = parseFloat(val);
-  if (!isNaN(v) && v > 0) window.PDA_OVERRIDES[port] = v;
-  else delete window.PDA_OVERRIDES[port];
+  if (!isNaN(v) && v > 0) window.PDA_OVERRIDES[callKey] = v;
+  else delete window.PDA_OVERRIDES[callKey];
   renderPDATable();
 }
 
@@ -2420,6 +2471,265 @@ function useAutoPDA() {
   renderPDATable();
 }
 function updatePortCostDisplay() {}
+
+// ═══ CARGO & REVENUE ENGINE ══════════════════════════════════
+// ── MİMARİ ───────────────────────────────────────────────────
+// 3 mod: detailed (POL→POD), quick (trade lane), manual (tek sayı)
+// Hesaplama sonucu her zaman rRevenue ve rCarCount/rHHCount'a yazılır.
+// calculateRoute() bu değerleri okur — mod fark etmez.
+//
+// TRADE LANE RATES: Bölge bazlı navlun referansları
+// Güncelleme: TRADE_LANE_RATES objesini değiştirin
+// ──────────────────────────────────────────────────────────────
+
+// Bölge tanımları (portları region'a eşle)
+const PORT_REGIONS = {
+  'Ningbo':'FE','Nansha':'FE','Yantai':'FE','Gunsan':'FE','Shanghai':'FE',
+  'Jebel Ali':'MEA','Khalifa':'MEA','Jeddah':'MEA','Aqaba':'MEA','Dammam':'MEA','Yanbu':'MEA','Djibouti':'MEA','Karachi':'MEA','Hambantota':'MEA',
+  'Barcelona':'MED','Marseille':'MED','Genova':'MED','Livorno':'MED','Toulon':'MED','Tarragona':'MED','Fos':'MED','Sete':'MED',
+  'Haydarpasa':'MED','Derince':'MED',
+  'Benghazi':'NAF','Misurata':'NAF','Alexandria':'NAF','Abu Qir':'NAF','Djen Djen':'NAF',
+  'Rotterdam':'NEUR','Antwerp':'NEUR',
+  'Dar Es Salaam':'EAF','Singapore':'SEA',
+};
+
+const REGION_LABELS = {
+  'FE':'Far East','MEA':'Middle East & Arabia','MED':'Mediterranean','NAF':'North Africa',
+  'NEUR':'North Europe','EAF':'East Africa','SEA':'Southeast Asia'
+};
+
+// Trade Lane navlun referansları ($/CBM veya $/unit)
+// Güncelleme: Gerçek booking datalarından hesaplanır
+// per_car_cbm = araba başı ortalama CBM (≈15)
+// per_hh_cbm  = H&H başı ortalama CBM (≈70)
+const TRADE_LANE_RATES = {
+  'FE→MEA':   { per_cbm:18, per_car:270, per_hh:1260, lumpsum_ref:850000, ref_note:'Yantai→Jebel Ali, 2000 car + 50 H&H', confidence:'estimated', updated:'2025-12' },
+  'FE→MED':   { per_cbm:22, per_car:330, per_hh:1540, lumpsum_ref:950000, ref_note:'Yantai→Barcelona, 1500 car + 100 H&H', confidence:'estimated', updated:'2025-12' },
+  'FE→NAF':   { per_cbm:20, per_car:300, per_hh:1400, lumpsum_ref:750000, ref_note:'Yantai→Alexandria, 1500 car', confidence:'estimated', updated:'2025-12' },
+  'FE→NEUR':  { per_cbm:25, per_car:375, per_hh:1750, lumpsum_ref:1100000,ref_note:'Yantai→Rotterdam, 2000 car', confidence:'estimated', updated:'2025-12' },
+  'MEA→MED':  { per_cbm:15, per_car:225, per_hh:1050, lumpsum_ref:400000, ref_note:'Khalifa→Barcelona, 800 car + 30 H&H', confidence:'estimated', updated:'2025-12' },
+  'MED→MEA':  { per_cbm:14, per_car:210, per_hh:980,  lumpsum_ref:350000, ref_note:'Barcelona→Jebel Ali, mostly empty repo', confidence:'estimated', updated:'2025-12' },
+  'MEA→NAF':  { per_cbm:12, per_car:180, per_hh:840,  lumpsum_ref:300000, ref_note:'Jebel Ali→Benghazi, mixed', confidence:'estimated', updated:'2025-12' },
+  'MEA→FE':   { per_cbm:10, per_car:150, per_hh:700,  lumpsum_ref:250000, ref_note:'Backhaul — genelde düşük', confidence:'estimated', updated:'2025-12' },
+  'MED→FE':   { per_cbm:8,  per_car:120, per_hh:560,  lumpsum_ref:200000, ref_note:'Backhaul — çoğu boş', confidence:'estimated', updated:'2025-12' },
+  'FE→EAF':   { per_cbm:20, per_car:300, per_hh:1400, lumpsum_ref:500000, ref_note:'Yantai→Dar Es Salaam', confidence:'estimated', updated:'2025-12' },
+  'FE→SEA':   { per_cbm:12, per_car:180, per_hh:840,  lumpsum_ref:400000, ref_note:'Short haul', confidence:'estimated', updated:'2025-12' },
+  'NAF→MED':  { per_cbm:10, per_car:150, per_hh:700,  lumpsum_ref:200000, ref_note:'Backhaul', confidence:'estimated', updated:'2025-12' },
+};
+
+// Detect region from port name
+function getPortRegion(portName) {
+  const key = Object.keys(PORT_REGIONS).find(k =>
+    portName.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(portName.toLowerCase())
+  );
+  return key ? PORT_REGIONS[key] : null;
+}
+
+// ── CARGO MODE MANAGEMENT ────────────────────────────────────
+let _cargoMode = 'detailed';
+let _cargoLegs = [];  // [{pol, pod, type:'car'|'hh', qty, rate, total}]
+let _tradeLanes = []; // [{lane, carQty, hhQty, lumpsum}]
+
+function setCargoMode(mode) {
+  _cargoMode = mode;
+  ['detailed','quick','manual'].forEach(m => {
+    const el = document.getElementById('cargo' + m.charAt(0).toUpperCase() + m.slice(1));
+    if (el) el.style.display = m === mode ? 'block' : 'none';
+    const btn = document.getElementById('cargoMode' + m.charAt(0).toUpperCase() + m.slice(1));
+    if (btn) { btn.style.background = m === mode ? '#1e3a5f' : 'var(--deck)'; btn.style.color = m === mode ? '#fff' : 'var(--text-mid)'; }
+  });
+  syncRevenueToCalc();
+}
+
+// ── DETAILED MODE: POL→POD Cargo Legs ────────────────────────
+function addCargoLeg() {
+  const ports = routePortList.length > 0 ? routePortList : [''];
+  _cargoLegs.push({ pol: ports[0] || '', pod: ports[ports.length > 1 ? 1 : 0] || '', type: 'car', qty: 0, rate: 0 });
+  renderCargoLegs();
+}
+
+function removeCargoLeg(idx) {
+  _cargoLegs.splice(idx, 1);
+  renderCargoLegs();
+}
+
+function updateCargoLeg(idx, field, val) {
+  if (!_cargoLegs[idx]) return;
+  _cargoLegs[idx][field] = field === 'qty' || field === 'rate' ? +val : val;
+  renderCargoLegs();
+}
+
+function renderCargoLegs() {
+  const container = document.getElementById('cargoLegsContainer');
+  if (!container) return;
+  const ports = routePortList.length > 0 ? routePortList : [''];
+  
+  let html = '';
+  let totalRev = 0, totalCar = 0, totalHH = 0;
+  
+  _cargoLegs.forEach((leg, i) => {
+    const legTotal = leg.qty * leg.rate;
+    totalRev += legTotal;
+    if (leg.type === 'car') totalCar += leg.qty; else totalHH += leg.qty;
+    
+    // Auto-detect trade lane for rate suggestion
+    const polR = getPortRegion(leg.pol);
+    const podR = getPortRegion(leg.pod);
+    const laneKey = polR && podR ? polR + '→' + podR : null;
+    const ref = laneKey ? TRADE_LANE_RATES[laneKey] : null;
+    const sugRate = ref ? (leg.type === 'car' ? ref.per_car : ref.per_hh) : 0;
+    
+    html += '<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px;padding:4px;background:rgba(0,0,0,.02);border-radius:3px;font-size:8px">';
+    // POL select
+    html += '<select style="width:70px;font-size:7px;padding:2px;border:1px solid var(--border);border-radius:2px;background:var(--white)" onchange="updateCargoLeg('+i+',\'pol\',this.value)">';
+    ports.forEach(p => { html += '<option' + (p === leg.pol ? ' selected' : '') + '>' + p + '</option>'; });
+    html += '</select>';
+    html += '<span style="color:var(--fog)">→</span>';
+    // POD select
+    html += '<select style="width:70px;font-size:7px;padding:2px;border:1px solid var(--border);border-radius:2px;background:var(--white)" onchange="updateCargoLeg('+i+',\'pod\',this.value)">';
+    ports.forEach(p => { html += '<option' + (p === leg.pod ? ' selected' : '') + '>' + p + '</option>'; });
+    html += '</select>';
+    // Type
+    html += '<select style="width:42px;font-size:7px;padding:2px;border:1px solid var(--border);border-radius:2px" onchange="updateCargoLeg('+i+',\'type\',this.value)">';
+    html += '<option value="car"' + (leg.type === 'car' ? ' selected' : '') + '>Car</option>';
+    html += '<option value="hh"' + (leg.type === 'hh' ? ' selected' : '') + '>H&H</option>';
+    html += '</select>';
+    // Qty
+    html += '<input type="number" style="width:45px;font-size:7px;padding:2px;border:1px solid var(--border);border-radius:2px;text-align:right" placeholder="Adet" value="' + (leg.qty || '') + '" onchange="updateCargoLeg('+i+',\'qty\',this.value)">';
+    // Rate (with suggestion)
+    html += '<input type="number" style="width:50px;font-size:7px;padding:2px;border:1px solid var(--border);border-radius:2px;text-align:right" placeholder="' + (sugRate > 0 ? '~$' + sugRate : 'Rate') + '" value="' + (leg.rate || '') + '" onchange="updateCargoLeg('+i+',\'rate\',this.value)">';
+    // Total
+    html += '<span style="width:55px;text-align:right;font-weight:600;color:var(--green);font-size:8px">$' + fmtN(legTotal) + '</span>';
+    // Lane hint
+    html += '<span style="width:50px;font-size:6px;color:var(--fog)">' + (laneKey || '') + '</span>';
+    // Remove
+    html += '<button style="font-size:7px;padding:1px 4px;background:none;border:1px solid var(--border);border-radius:2px;cursor:pointer;color:var(--red)" onclick="removeCargoLeg('+i+')">×</button>';
+    html += '</div>';
+  });
+  
+  container.innerHTML = html;
+  
+  const totEl = document.getElementById('cargoDetailedTotal');
+  if (totEl) totEl.textContent = '$' + fmtN(totalRev);
+  const unitsEl = document.getElementById('cargoDetailedUnits');
+  if (unitsEl) unitsEl.textContent = fmtN(totalCar) + ' car / ' + fmtN(totalHH) + ' H&H';
+  
+  // Sync to hidden fields
+  const carEl = document.getElementById('rCarCount');
+  const hhEl = document.getElementById('rHHCount');
+  if (carEl) carEl.value = totalCar;
+  if (hhEl) hhEl.value = totalHH;
+  
+  syncRevenueToCalc();
+  renderPDATable();
+}
+
+// ── QUICK MODE: Trade Lane ───────────────────────────────────
+function addTradeLane() {
+  // Auto-detect from route
+  let defaultLane = 'FE→MEA';
+  if (routePortList.length >= 2) {
+    const r1 = getPortRegion(routePortList[0]);
+    const r2 = getPortRegion(routePortList[routePortList.length - 1]);
+    if (r1 && r2 && r1 !== r2) defaultLane = r1 + '→' + r2;
+  }
+  _tradeLanes.push({ lane: defaultLane, carQty: 0, hhQty: 0, lumpsum: 0, useLumpsum: false });
+  renderTradeLanes();
+}
+
+function removeTradeLane(idx) {
+  _tradeLanes.splice(idx, 1);
+  renderTradeLanes();
+}
+
+function updateTradeLane(idx, field, val) {
+  if (!_tradeLanes[idx]) return;
+  if (field === 'useLumpsum') _tradeLanes[idx][field] = val;
+  else _tradeLanes[idx][field] = field === 'lane' ? val : +val;
+  renderTradeLanes();
+}
+
+function renderTradeLanes() {
+  const container = document.getElementById('tradeLaneContainer');
+  if (!container) return;
+  const lanes = Object.keys(TRADE_LANE_RATES);
+  
+  let html = '';
+  let totalRev = 0, totalCar = 0, totalHH = 0;
+  
+  _tradeLanes.forEach((tl, i) => {
+    const ref = TRADE_LANE_RATES[tl.lane];
+    let laneRev = 0;
+    if (tl.useLumpsum && tl.lumpsum > 0) {
+      laneRev = tl.lumpsum;
+    } else if (ref) {
+      laneRev = (tl.carQty * ref.per_car) + (tl.hhQty * ref.per_hh);
+    }
+    totalRev += laneRev;
+    totalCar += tl.carQty;
+    totalHH += tl.hhQty;
+    
+    html += '<div style="padding:6px;margin-bottom:4px;background:rgba(0,0,0,.02);border-radius:4px;border:1px solid var(--border-light)">';
+    // Lane selector + ref info
+    html += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">';
+    html += '<select style="width:100px;font-size:8px;padding:3px;border:1px solid var(--border);border-radius:3px;font-weight:600" onchange="updateTradeLane('+i+',\'lane\',this.value)">';
+    lanes.forEach(l => { html += '<option' + (l === tl.lane ? ' selected' : '') + '>' + l + '</option>'; });
+    html += '</select>';
+    if (ref) {
+      html += '<span style="font-size:6px;color:var(--fog)">$' + ref.per_car + '/car · $' + ref.per_hh + '/H&H · Ref: $' + fmtN(ref.lumpsum_ref) + '</span>';
+    }
+    html += '<button style="margin-left:auto;font-size:7px;padding:1px 4px;background:none;border:1px solid var(--border);border-radius:2px;cursor:pointer;color:var(--red)" onclick="removeTradeLane('+i+')">×</button>';
+    html += '</div>';
+    // Input row
+    html += '<div style="display:flex;gap:6px;align-items:center;font-size:8px">';
+    html += '<label style="display:flex;align-items:center;gap:2px"><input type="checkbox" ' + (tl.useLumpsum ? 'checked' : '') + ' onchange="updateTradeLane('+i+',\'useLumpsum\',this.checked)" style="width:12px;height:12px"> <span style="font-size:7px">Toplam</span></label>';
+    if (tl.useLumpsum) {
+      html += '<input type="number" style="width:90px;font-size:8px;padding:3px;border:1px solid var(--border);border-radius:3px" placeholder="Lumpsum $" value="' + (tl.lumpsum || '') + '" onchange="updateTradeLane('+i+',\'lumpsum\',this.value)">';
+    } else {
+      html += '<input type="number" style="width:55px;font-size:8px;padding:3px;border:1px solid var(--border);border-radius:3px" placeholder="Car" value="' + (tl.carQty || '') + '" onchange="updateTradeLane('+i+',\'carQty\',this.value)">';
+      html += '<input type="number" style="width:55px;font-size:8px;padding:3px;border:1px solid var(--border);border-radius:3px" placeholder="H&H" value="' + (tl.hhQty || '') + '" onchange="updateTradeLane('+i+',\'hhQty\',this.value)">';
+    }
+    html += '<span style="margin-left:auto;font-weight:700;color:var(--green)">$' + fmtN(laneRev) + '</span>';
+    html += '</div>';
+    html += '</div>';
+  });
+  
+  container.innerHTML = html;
+  const totEl = document.getElementById('tradeLaneTotal');
+  if (totEl) totEl.textContent = '$' + fmtN(totalRev);
+  
+  // Sync hidden fields
+  const carEl = document.getElementById('rCarCount');
+  const hhEl = document.getElementById('rHHCount');
+  if (carEl) carEl.value = totalCar;
+  if (hhEl) hhEl.value = totalHH;
+  
+  syncRevenueToCalc();
+  renderPDATable();
+}
+
+// ── SYNC: Tüm modlardan → rRevenue ──────────────────────────
+function syncRevenueToCalc() {
+  let rev = 0;
+  if (_cargoMode === 'detailed') {
+    rev = _cargoLegs.reduce((s, l) => s + (l.qty * l.rate), 0);
+  } else if (_cargoMode === 'quick') {
+    _tradeLanes.forEach(tl => {
+      const ref = TRADE_LANE_RATES[tl.lane];
+      if (tl.useLumpsum) { rev += tl.lumpsum; }
+      else if (ref) { rev += (tl.carQty * ref.per_car) + (tl.hhQty * ref.per_hh); }
+    });
+  } else {
+    rev = +($('rRevenue')?.value || 0);
+  }
+  // Write to rRevenue (for calculateRoute)
+  const revEl = document.getElementById('rRevenue');
+  if (revEl && _cargoMode !== 'manual') revEl.value = rev;
+  // Write cargoUnits (for PDA)
+  const cargoEl = document.getElementById('rCargoUnits');
+  const totalUnits = (+($('rCarCount')?.value || 0)) + (+($('rHHCount')?.value || 0));
+  if (cargoEl && _cargoMode !== 'manual') cargoEl.value = totalUnits;
+}
 
 function updatePortDates() {
   if(!routePortList || routePortList.length === 0) return;
