@@ -1685,8 +1685,8 @@ async function renderRouteOptimizer(){
   // Cargo capacity input
   html += '<div style="margin:10px 0;padding:10px;background:rgba(200,162,78,.03);border:1px solid var(--border);border-radius:6px">';
   html += '<div class="form-label">KARGO BİLGİSİ (Opsiyonel — gemi önerisi için)</div>';
-  html += '<div class="form-row"><div><div class="form-label">Araç Adedi (Car/SUV)</div><input class="form-input" type="number" id="rCarCount" value="0"></div>';
-  html += '<div><div class="form-label">H&H Adedi (Kamyon/İş Mak.)</div><input class="form-input" type="number" id="rHHCount" value="0"></div></div>';
+  html += '<div class="form-row"><div><div class="form-label">Araç Adedi (Car/SUV)</div><input class="form-input" type="number" id="rCarCount" value="0" oninput="renderPDATable()"></div>';
+  html += '<div><div class="form-label">H&H Adedi (Kamyon/İş Mak.)</div><input class="form-input" type="number" id="rHHCount" value="0" oninput="renderPDATable()"></div></div>';
   html += '<div class="form-row"><div><div class="form-label">H&H Ort. Yükseklik (m)</div><input class="form-input" type="number" step="0.1" id="rHHHeight" value="3.5"></div>';
   html += '<div><div class="form-label">Toplam SQM İhtiyacı</div><input class="form-input" type="number" id="rSQMNeed" value="0"></div></div>';
   html += '<div style="font-size:7px;color:var(--fog);margin-top:4px">Packing list yüklemek için Excel Yükle sekmesini kullanın. Burada hızlı özet giriş yapılabilir.</div>';
@@ -1820,6 +1820,7 @@ async function renderRouteOptimizer(){
   // Update EWRI/PDA on vessel change
   $('rVessel').addEventListener('change', function(){
     updateEWRIPreview();
+    renderPDATable(); // GT değişince PDA yeniden hesapla
   });
   
   // Show initial distance table
@@ -2195,99 +2196,213 @@ function getSeaFuelForLeg(vessel, fromPort, toPort){
 }
 
 
-// ═══ PDA PORT COST REFERENCE ═══════════════════════════════════
-// Format: base_usd = sabit gider (pilotaj, port dues vs.)
-//         per_unit = araç başı (stevedoring, terminal handling)
-//         ref_units = referans seferdeki araç adedi
-//         ref_total = referans sefer toplam PDA
-// Kullanıcı kargo adedi girince: base + (per_unit * new_units)
-const PDA_REFERENCE = {
-  'Khalifa':        { base_usd: 35000, per_unit: 12, ref_units: 1800, ref_total: 56600 },
-  'Jebel Ali':      { base_usd: 40000, per_unit: 14, ref_units: 1800, ref_total: 65200 },
-  'Jeddah':         { base_usd: 55000, per_unit: 18, ref_units: 1500, ref_total: 82000 },
-  'Aqaba':          { base_usd: 45000, per_unit: 15, ref_units: 1200, ref_total: 63000 },
-  'Dammam':         { base_usd: 48000, per_unit: 16, ref_units: 1200, ref_total: 67200 },
-  'Yanbu':          { base_usd: 42000, per_unit: 14, ref_units: 1000, ref_total: 56000 },
-  'Djibouti':       { base_usd: 30000, per_unit: 10, ref_units: 800,  ref_total: 38000 },
-  'Hambantota':     { base_usd: 25000, per_unit: 8,  ref_units: 1000, ref_total: 33000 },
-  'Singapore':      { base_usd: 50000, per_unit: 20, ref_units: 2000, ref_total: 90000 },
-  'Ningbo':         { base_usd: 45000, per_unit: 15, ref_units: 2500, ref_total: 82500 },
-  'Nansha':         { base_usd: 42000, per_unit: 14, ref_units: 2000, ref_total: 70000 },
-  'Yantai':         { base_usd: 40000, per_unit: 13, ref_units: 2000, ref_total: 66000 },
-  'Gunsan':         { base_usd: 38000, per_unit: 12, ref_units: 1500, ref_total: 56000 },
-  'Barcelona':      { base_usd: 65000, per_unit: 22, ref_units: 1500, ref_total: 98000 },
-  'Marseille':      { base_usd: 60000, per_unit: 20, ref_units: 1200, ref_total: 84000 },
-  'Genova':         { base_usd: 70000, per_unit: 25, ref_units: 1200, ref_total: 100000 },
-  'Livorno':        { base_usd: 65000, per_unit: 22, ref_units: 1000, ref_total: 87000 },
-  'Rotterdam':      { base_usd: 75000, per_unit: 28, ref_units: 2000, ref_total: 131000 },
-  'Antwerp':        { base_usd: 72000, per_unit: 26, ref_units: 1800, ref_total: 118800 },
-  'Benghazi':       { base_usd: 80000, per_unit: 30, ref_units: 1000, ref_total: 110000 },
-  'Misurata':       { base_usd: 75000, per_unit: 28, ref_units: 1000, ref_total: 103000 },
-  'Alexandria':     { base_usd: 55000, per_unit: 18, ref_units: 1200, ref_total: 76600 },
-  'Dar Es Salaam':  { base_usd: 35000, per_unit: 12, ref_units: 800,  ref_total: 44600 },
-  'Karachi':        { base_usd: 40000, per_unit: 14, ref_units: 1000, ref_total: 54000 },
-  'Haydarpasa':     { base_usd: 50000, per_unit: 16, ref_units: 1200, ref_total: 69200 },
-  'Derince':        { base_usd: 48000, per_unit: 15, ref_units: 1000, ref_total: 63000 },
-  'Djen Djen':      { base_usd: 45000, per_unit: 15, ref_units: 1000, ref_total: 60000 },
+// ═══ PDA PORT COST REFERENCE v2 ════════════════════════════════
+// ── MİMARİ NOTLARI (gelecek sohbetler için) ──────────────────
+// Bu blok tüm liman masrafı tahmin motorunu içerir.
+// Güncelleme: Sadece PDA_REFERENCE objesindeki sayıları değiştirin.
+// Yeni liman: Objeye yeni satır ekleyin, aynı format.
+// Yeni gemi:  VESSEL_SPECS'e ekleyin. GT bazlı ölçekleme otomatik.
+//
+// FORMÜL: tahmin = base_usd(GT) + per_car×carCount + per_hh×hhCount
+//   base_usd(GT) = ref_base × (vesselGT / ref_gt) ^ gt_exponent
+//   gt_exponent  = 0.35 (port dues/pilotage genelde GT^0.3-0.4 oranında)
+//
+// CONFIDENCE: 'verified' = gerçek FDA'dan, 'estimated' = tarife/tahmin
+// ──────────────────────────────────────────────────────────────
+
+// ── VESSEL SPECS ─────────────────────────────────────────────
+// Yeni gemi eklerken: isim, gt, nrt, loa ekle. PDA otomatik ölçeklenir.
+const VESSEL_SPECS = {
+  'UGR AL SAMHA':        { gt:68577, nrt:21838, loa:199.9, beam:38.0, car_cap:7171, decks:12, sister:'Atlas7000' },
+  'UGR ZAKHER':          { gt:68577, nrt:21838, loa:199.9, beam:38.0, car_cap:7171, decks:12, sister:'Atlas7000' },
+  'UGR AL AIN':          { gt:68577, nrt:21838, loa:199.9, beam:38.0, car_cap:7171, decks:12, sister:'Atlas7000' },
+  'UGR ARABIAN GULF':    { gt:47232, nrt:14315, loa:182.8, beam:31.5, car_cap:4900, decks:12, sister:'XSI4900' },
+  'RAMHAN':              { gt:51055, nrt:17158, loa:240.0, beam:37.5, car_cap:1754, decks:4,  sister:'STX5000' },
+  'AL JUBAIL':           { gt:51025, nrt:17158, loa:240.0, beam:37.5, car_cap:1754, decks:4,  sister:'STX5000' },
+  'UGR ISTANBUL':        { gt:9233,  nrt:2940,  loa:99.95, beam:19.65,car_cap:875,  decks:8,  sister:'Hegemann' },
+  'ERK IZMIR':           { gt:9233,  nrt:2940,  loa:99.95, beam:19.65,car_cap:875,  decks:8,  sister:'Hegemann' },
+  'SAFFET BEY':          { gt:19773, nrt:9257,  loa:163.8, beam:23.5, car_cap:4355, decks:4,  sister:'Danyard' },
+  'CHANG SHENG HONG':    { gt:37237, nrt:11172, loa:176.7, beam:28.0, car_cap:4313, decks:10, sister:'Uljanik' },
+  'ABU SAMRAH':          { gt:28881, nrt:10298, loa:209.79,beam:26.0, car_cap:0,    decks:4,  sister:'Flensburg'},
 };
 
-// Current editable overrides (user can change in UI)
+// ── PDA REFERENCE ────────────────────────────────────────────
+// ref_gt   : bu fiyatlar hangi GT'lik gemi için geçerli
+// base_usd : sabit masraflar (agency+port dues+pilotage+towage+mooring+MARPOL)
+// per_car  : araba/SUV başı stevedoring+THC (USD)
+// per_hh   : H&H/kamyon/iş makinesi başı stevedoring+THC (USD)
+// currency : yerel para birimi (bilgi amaçlı)
+// confidence: verified=gerçek FDA, estimated=tarife bazlı tahmin
+// source   : veri kaynağı ve tarih
+// updated  : son güncelleme tarihi
+//
+// ÖNEMLİ: base_usd ref_gt'deki gemi içindir. Farklı GT'de otomatik ölçeklenir.
+const PDA_REFERENCE = {
+  // ── DOĞRULANMIŞ (gerçek FDA/faturadan) ──
+  'Barcelona':      { base_usd:37100, per_car:18, per_hh:68, ref_gt:68903, currency:'EUR', confidence:'verified', source:'Noatum MMBCNFA25/21878, Nov 2025', updated:'2025-12' },
+  'Yantai':         { base_usd:14500, per_car:32, per_hh:145,ref_gt:51025, currency:'CNY→USD', confidence:'verified', source:'Sinoagent Trip Accounts x5, Jun-Dec 2025', updated:'2025-12' },
+  'Suez Canal':     { base_usd:517000,per_car:0,  per_hh:0,  ref_gt:68903, currency:'USD', confidence:'verified', source:'Noatum Egypt ADADA25/00255, Nov 2025', updated:'2025-12' },
+  'Benghazi':       { base_usd:60000, per_car:22, per_hh:85, ref_gt:68903, currency:'USD', confidence:'verified', source:'Medship FDA MEDUGR05, Aug 2025', updated:'2025-12' },
+  // ── TAHMİNİ (tarife + bölge karşılaştırması) ──
+  'Khalifa':        { base_usd:18000, per_car:10, per_hh:52, ref_gt:68903, currency:'AED', confidence:'estimated', source:'Khalifa Port tariff 2024 + RAMHAN FDA est.', updated:'2025-12' },
+  'Jebel Ali':      { base_usd:22000, per_car:12, per_hh:55, ref_gt:68903, currency:'AED', confidence:'estimated', source:'DP World tariff + regional benchmark', updated:'2025-12' },
+  'Jeddah':         { base_usd:35000, per_car:16, per_hh:65, ref_gt:68903, currency:'SAR', confidence:'estimated', source:'Saudi Ports tariff 2024', updated:'2025-12' },
+  'Aqaba':          { base_usd:28000, per_car:14, per_hh:58, ref_gt:68903, currency:'JOD', confidence:'estimated', source:'Aqaba port tariff', updated:'2025-12' },
+  'Dammam':         { base_usd:32000, per_car:15, per_hh:62, ref_gt:68903, currency:'SAR', confidence:'estimated', source:'Saudi Ports tariff 2024', updated:'2025-12' },
+  'Yanbu':          { base_usd:26000, per_car:13, per_hh:55, ref_gt:68903, currency:'SAR', confidence:'estimated', source:'Saudi Ports tariff 2024', updated:'2025-12' },
+  'Djibouti':       { base_usd:20000, per_car:10, per_hh:45, ref_gt:68903, currency:'USD', confidence:'estimated', source:'Djibouti port tariff', updated:'2025-12' },
+  'Hambantota':     { base_usd:15000, per_car:8,  per_hh:35, ref_gt:68903, currency:'USD', confidence:'estimated', source:'HIPG tariff', updated:'2025-12' },
+  'Singapore':      { base_usd:30000, per_car:18, per_hh:70, ref_gt:68903, currency:'SGD', confidence:'estimated', source:'MPA tariff + industry avg', updated:'2025-12' },
+  'Ningbo':         { base_usd:13000, per_car:30, per_hh:140,ref_gt:51025, currency:'CNY→USD', confidence:'estimated', source:'Yantai benchmark + Ningbo tariff', updated:'2025-12' },
+  'Nansha':         { base_usd:12000, per_car:28, per_hh:130,ref_gt:51025, currency:'CNY→USD', confidence:'estimated', source:'Yantai benchmark + Nansha tariff', updated:'2025-12' },
+  'Gunsan':         { base_usd:20000, per_car:15, per_hh:60, ref_gt:51025, currency:'KRW', confidence:'estimated', source:'Korean port tariff est.', updated:'2025-12' },
+  'Marseille':      { base_usd:35000, per_car:17, per_hh:65, ref_gt:68903, currency:'EUR', confidence:'estimated', source:'Barcelona benchmark + Med avg', updated:'2025-12' },
+  'Genova':         { base_usd:40000, per_car:20, per_hh:75, ref_gt:68903, currency:'EUR', confidence:'estimated', source:'Italian port tariff est.', updated:'2025-12' },
+  'Livorno':        { base_usd:38000, per_car:19, per_hh:72, ref_gt:68903, currency:'EUR', confidence:'estimated', source:'Italian port tariff est.', updated:'2025-12' },
+  'Rotterdam':      { base_usd:42000, per_car:22, per_hh:80, ref_gt:68903, currency:'EUR', confidence:'estimated', source:'Rotterdam port tariff 2024', updated:'2025-12' },
+  'Antwerp':        { base_usd:40000, per_car:20, per_hh:78, ref_gt:68903, currency:'EUR', confidence:'estimated', source:'Antwerp port tariff + ICO est.', updated:'2025-12' },
+  'Misurata':       { base_usd:55000, per_car:25, per_hh:90, ref_gt:68903, currency:'USD', confidence:'estimated', source:'Benghazi benchmark + Libya avg', updated:'2025-12' },
+  'Alexandria':     { base_usd:30000, per_car:15, per_hh:60, ref_gt:68903, currency:'USD', confidence:'estimated', source:'Egypt port tariff est.', updated:'2025-12' },
+  'Abu Qir':        { base_usd:28000, per_car:14, per_hh:55, ref_gt:68903, currency:'USD', confidence:'estimated', source:'Alexandria benchmark', updated:'2025-12' },
+  'Dar Es Salaam':  { base_usd:18000, per_car:10, per_hh:45, ref_gt:68903, currency:'USD', confidence:'estimated', source:'TPA tariff', updated:'2025-12' },
+  'Karachi':        { base_usd:22000, per_car:12, per_hh:50, ref_gt:68903, currency:'USD', confidence:'estimated', source:'KPT tariff', updated:'2025-12' },
+  'Haydarpasa':     { base_usd:25000, per_car:14, per_hh:55, ref_gt:47232, currency:'TRY', confidence:'estimated', source:'TCDD tariff + Yarımca est.', updated:'2025-12' },
+  'Derince':        { base_usd:22000, per_car:13, per_hh:52, ref_gt:47232, currency:'TRY', confidence:'estimated', source:'TCDD tariff', updated:'2025-12' },
+  'Djen Djen':      { base_usd:25000, per_car:14, per_hh:55, ref_gt:68903, currency:'DZD', confidence:'estimated', source:'Algeria port tariff est.', updated:'2025-12' },
+  'Toulon':         { base_usd:33000, per_car:16, per_hh:62, ref_gt:68903, currency:'EUR', confidence:'estimated', source:'Barcelona benchmark', updated:'2025-12' },
+  'Tarragona':      { base_usd:32000, per_car:16, per_hh:60, ref_gt:68903, currency:'EUR', confidence:'estimated', source:'Barcelona benchmark', updated:'2025-12' },
+  'Fos':            { base_usd:34000, per_car:17, per_hh:65, ref_gt:68903, currency:'EUR', confidence:'estimated', source:'Marseille benchmark', updated:'2025-12' },
+  'Sete':           { base_usd:30000, per_car:15, per_hh:58, ref_gt:68903, currency:'EUR', confidence:'estimated', source:'Fr Med avg', updated:'2025-12' },
+};
+
+// GT ölçekleme üssü — port dues & pilotage genelde GT^0.3-0.4 ile ölçeklenir
+const GT_EXPONENT = 0.35;
+
+// ── MOTOR FONKSİYONLARI ──────────────────────────────────────
+
+// Seçili geminin GT'sini bul (DB'den veya VESSEL_SPECS'ten)
+function getSelectedVesselGT() {
+  const vesselId = +($('rVessel')?.value || 0);
+  const vessel = (window.ACTIVE_VESSELS || []).find(v => v.id === vesselId);
+  if (!vessel) return 50000; // fallback
+  // Önce VESSEL_SPECS'ten bak (en güvenilir kaynak)
+  const spec = VESSEL_SPECS[vessel.name];
+  if (spec) return spec.gt;
+  // Yoksa DWT'den tahmin et (kaba: GT ≈ DWT * 3.5 for PCTC)
+  if (vessel.dwt && vessel.dwt > 0) return Math.round(vessel.dwt * 3.5);
+  return 50000;
+}
+
+function getSelectedVesselName() {
+  const vesselId = +($('rVessel')?.value || 0);
+  const vessel = (window.ACTIVE_VESSELS || []).find(v => v.id === vesselId);
+  return vessel ? vessel.name : '';
+}
+
+// PDA hesapla: GT ölçeklemeli, car/HH ayrımı
 window.PDA_OVERRIDES = {};
 
-function getPDAcost(portName, cargoUnits) {
-  const key = Object.keys(PDA_REFERENCE).find(k => 
-    portName.toLowerCase().includes(k.toLowerCase()) || 
+function getPDAcost(portName, carCount, hhCount, vesselGT) {
+  // Manuel override varsa direkt dön
+  const ov = window.PDA_OVERRIDES[portName];
+  if (ov !== undefined) return { total: ov, breakdown: null, override: true };
+
+  // Liman bul
+  const key = Object.keys(PDA_REFERENCE).find(k =>
+    portName.toLowerCase().includes(k.toLowerCase()) ||
     k.toLowerCase().includes(portName.toLowerCase())
   );
-  const ov = window.PDA_OVERRIDES[portName];
-  if (ov !== undefined) return ov; // user manually set
-  if (!key) return 50000; // default
-  const pda = PDA_REFERENCE[key];
-  if (!cargoUnits || cargoUnits === 0) return pda.ref_total;
-  return Math.round(pda.base_usd + pda.per_unit * cargoUnits);
+  if (!key) return { total: 50000, breakdown: null, override: false, unknown: true };
+
+  const p = PDA_REFERENCE[key];
+  const gt = vesselGT || 50000;
+
+  // GT ölçekleme: base_usd * (vesselGT/ref_gt)^exponent
+  const gtRatio = Math.pow(gt / (p.ref_gt || 50000), GT_EXPONENT);
+  const scaledBase = Math.round(p.base_usd * gtRatio);
+
+  // Kargo masrafı
+  const carCost = (carCount || 0) * (p.per_car || 0);
+  const hhCost  = (hhCount || 0)  * (p.per_hh || 0);
+  const total   = Math.round(scaledBase + carCost + hhCost);
+
+  return {
+    total,
+    breakdown: { base: scaledBase, carCost: Math.round(carCost), hhCost: Math.round(hhCost), gtRatio: gtRatio.toFixed(2) },
+    override: false,
+    confidence: p.confidence,
+    source: p.source
+  };
+}
+
+// Eski API uyumluluğu (calculateRoute vb. hâlâ tek sayı bekliyor)
+function getPDAcostLegacy(portName, cargoUnits) {
+  const gt = getSelectedVesselGT();
+  // Kargo adedi verilmişse hepsini car say (basit mod)
+  return getPDAcost(portName, cargoUnits, 0, gt).total;
 }
 
 function renderPDATable() {
   if (!routePortList || routePortList.length === 0) return;
+  const carCount = +($('rCarCount')?.value || 0);
+  const hhCount  = +($('rHHCount')?.value || 0);
   const cargoUnits = +($('rCargoUnits')?.value || 0);
+  // Eğer car/hh ayrımı girilmemişse, cargoUnits'i car olarak kullan
+  const effectiveCar = (carCount > 0 || hhCount > 0) ? carCount : cargoUnits;
+  const effectiveHH  = (carCount > 0 || hhCount > 0) ? hhCount : 0;
+  const gt = getSelectedVesselGT();
+  const vesselName = getSelectedVesselName();
+
   let html = '<table class="tbl"><thead><tr>';
-  html += '<th>Liman</th><th>Referans</th><th>Kargo Adedi</th><th>Tahmini PDA</th><th>Manuel</th>';
+  html += '<th>Liman</th><th style="font-size:7px">Baz ($)</th><th style="font-size:7px">Car ($)</th><th style="font-size:7px">H&H ($)</th>';
+  html += '<th>Tahmini PDA</th><th style="font-size:7px">Güven</th><th>Manuel</th>';
   html += '</tr></thead><tbody>';
-  
+
   let total = 0;
   routePortList.forEach(port => {
-    const pda = getPDAcost(port, cargoUnits);
-    const key = Object.keys(PDA_REFERENCE).find(k => 
+    const r = getPDAcost(port, effectiveCar, effectiveHH, gt);
+    const key = Object.keys(PDA_REFERENCE).find(k =>
       port.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(port.toLowerCase())
     );
     const ref = PDA_REFERENCE[key];
-    const hasOverride = window.PDA_OVERRIDES[port] !== undefined;
-    total += pda;
-    
+    const hasOverride = r.override;
+    total += r.total;
+
+    // Confidence rengi
+    let confLabel = '—', confCls = '';
+    if (r.unknown) { confLabel = '?'; confCls = 'color:var(--red)'; }
+    else if (hasOverride) { confLabel = '✏️'; confCls = 'color:var(--amber)'; }
+    else if (ref) {
+      if (ref.confidence === 'verified') { confLabel = '✓'; confCls = 'color:var(--green);font-weight:700'; }
+      else { confLabel = '~'; confCls = 'color:var(--amber)'; }
+    }
+
     html += '<tr>';
-    html += '<td style="font-weight:600">' + port + '</td>';
-    html += '<td style="font-size:8px;color:var(--fog)">' + (ref ? '$'+fmtN(ref.ref_total)+' ('+fmtN(ref.ref_units)+' araç)' : '—') + '</td>';
-    html += '<td style="font-size:8px">' + (cargoUnits > 0 ? fmtN(cargoUnits) : '—') + '</td>';
-    html += '<td class="' + (hasOverride ? 'amber' : 'red') + '" style="font-weight:600">$' + fmtN(pda) + (hasOverride ? ' ✏️' : '') + '</td>';
-    html += '<td><input type="number" style="width:80px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px" ';
+    html += '<td style="font-weight:600;font-size:9px">' + port + '</td>';
+    if (r.breakdown && !hasOverride) {
+      html += '<td style="font-size:7px;color:var(--text-mid)">$' + fmtN(r.breakdown.base) + '<br><span style="color:var(--fog)">GT×' + r.breakdown.gtRatio + '</span></td>';
+      html += '<td style="font-size:7px;color:var(--blue)">' + (r.breakdown.carCost > 0 ? '$' + fmtN(r.breakdown.carCost) : '—') + '</td>';
+      html += '<td style="font-size:7px;color:var(--purple)">' + (r.breakdown.hhCost > 0 ? '$' + fmtN(r.breakdown.hhCost) : '—') + '</td>';
+    } else {
+      html += '<td colspan="3" style="font-size:7px;color:var(--fog);text-align:center">' + (hasOverride ? 'Manuel giriş' : 'Bilinmeyen liman') + '</td>';
+    }
+    html += '<td class="' + (hasOverride ? 'amber' : r.unknown ? 'red' : 'green') + '" style="font-weight:700;font-size:10px">$' + fmtN(r.total) + '</td>';
+    html += '<td style="font-size:8px;' + confCls + '">' + confLabel + '</td>';
+    html += '<td><input type="number" style="width:70px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px" ';
     html += 'placeholder="Manuel" value="' + (hasOverride ? window.PDA_OVERRIDES[port] : '') + '" ';
     html += 'onchange="setPDAOverride(\'' + port + '\', this.value)">';
-    html += '</td>';
-    html += '</tr>';
+    html += '</td></tr>';
   });
-  
+
   html += '</tbody></table>';
+  // GT bilgi satırı
+  html += '<div style="font-size:7px;color:var(--fog);margin-top:4px">🚢 ' + (vesselName || 'Gemi seçin') + ' — GT: ' + fmtN(gt) + ' | ✓=FDA doğrulanmış ~=Tahmini ✏️=Manuel</div>';
+
   const el = document.getElementById('pdaPortCostTable');
   if (el) el.innerHTML = html;
   const tot = document.getElementById('pdaTotalDisplay');
   if (tot) tot.textContent = '$' + fmtN(total);
-  
-  // Also update manual override field if it's 0
-  const manualField = document.getElementById('rPortCost');
-  if (manualField && (+manualField.value === 0)) {
-    // keep at 0 to signal "use auto"
-  }
-  
+
   window._autoPDAtotal = total;
 }
 
@@ -2299,8 +2414,8 @@ function setPDAOverride(port, val) {
 }
 
 function updatePortCostEstimates() { renderPDATable(); }
-function useAutoPDA() { 
-  const f = document.getElementById('rPortCost'); 
+function useAutoPDA() {
+  const f = document.getElementById('rPortCost');
   if (f) { f.value = 0; }
   renderPDATable();
 }
@@ -2483,7 +2598,7 @@ function exportRouteToExcel() {
   addRow([{ v: 'PORT DISBURSEMENTS (PDA)', t: 's', s: { font: { bold: true, color: { rgb: 'C8A24E' } } } }]);
   addRow([S('Port'), S('Estimated PDA ($)'), S('Notes')]);
   r.autoPortCosts.forEach(apc => {
-    const pdaCost = getPDAcost(apc.port, r.cargoUnits);
+    const pdaCost = getPDAcostLegacy(apc.port, r.cargoUnits);
     rows.push([S(apc.port), USD(pdaCost), S(r.cargoUnits > 0 ? r.cargoUnits + ' units' : 'Reference rate')]);
   });
   if (r.suezNeeded) {
@@ -2756,7 +2871,7 @@ async function calculateRoute(){
         arrival: cursor,
         departure: addDays(cursor, portFuelDetails[0]?.days || 2),
         fuel: portFuelDetails[0]?.fuel?.fuel || '—',
-        portCost: getPDAcost(l.from, +(($('rCargoUnits')?.value)||0)),
+        portCost: getPDAcostLegacy(l.from, +(($('rCargoUnits')?.value)||0)),
         isFirst: true
       });
       cursor = addDays(cursor, portFuelDetails[0]?.days || 2);
@@ -2779,7 +2894,7 @@ async function calculateRoute(){
       fuelCost: l.fuelCost || 0,
       portFuel: portFuelDetails[pdIdx]?.fuel?.fuel || '—',
       portFuelMT: portFuelDetails[pdIdx]?.mt || 0,
-      portCost: getPDAcost(l.to, +(($('rCargoUnits')?.value)||0)),
+      portCost: getPDAcostLegacy(l.to, +(($('rCargoUnits')?.value)||0)),
       missing: l.missing
     });
     cursor = addDays(arrivalAtTo, idleDays);
