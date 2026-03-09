@@ -2803,29 +2803,45 @@ async function calculateRoute(){
     })
     .sort((a,b) => a.speed_kn - b.speed_kn);
 
-  // Eğer tek hız noktası varsa, cubic propeller law ile 10-20 kn arası interpolate et
+  // Cubic regression smooth: TPD = a * speed^3 kullanarak en iyi fit bul
+  // Bu hem outlier'ları eler hem de fiziksel olarak tutarlı eğri verir
   let reliableSpeeds = reliableSpeeds_raw;
-  if (reliableSpeeds_raw.length <= 2 && reliableSpeeds_raw.length > 0) {
-    // Referans noktası: gerçek ortalama hız ve TPD
-    const refSpeed = seaProfile.avg_speed_kn || vessel.speed_ballast || 14;
-    const refTPD = reliableSpeeds_raw[0]?.total_tpd || realSeaTPD;
-    const speedRange = [10, 11, 12, 13, 13.5, 14, 14.5, 15, 15.5, 16, 16.5, 17, 17.5, 18];
+  
+  if (reliableSpeeds_raw.length >= 3) {
+    // Least squares fit: TPD = k * speed^3
+    // k = Σ(speed^3 * tpd) / Σ(speed^6)
+    let sumS3T = 0, sumS6 = 0;
+    reliableSpeeds_raw.forEach(p => {
+      const s3 = Math.pow(p.speed_kn, 3);
+      sumS3T += s3 * p.total_tpd;
+      sumS6  += s3 * s3;
+    });
+    const k = sumS6 > 0 ? sumS3T / sumS6 : null;
+    
+    if (k) {
+      // Smooth edilmiş TPD değerleri ile yeni liste — orijinal kayıt sayısını koru
+      reliableSpeeds = reliableSpeeds_raw.map(p => ({
+        ...p,
+        total_tpd: k * Math.pow(p.speed_kn, 3),
+        isSmoothed: true,
+      }));
+    }
+  } else if (reliableSpeeds_raw.length > 0 && reliableSpeeds_raw.length < 3) {
+    // Az veri: cubic law ile referans nokta üzerinden interpolate et
+    const refSpeed = reliableSpeeds_raw[0].speed_kn;
+    const refTPD   = reliableSpeeds_raw[0].total_tpd;
+    const speedRange = [10, 11, 12, 13, 13.5, 14, 14.5, 15, 15.5, 16, 16.5, 17, 17.5, 18, 19, 20];
     reliableSpeeds = speedRange.map(spd => {
-      // TPD ∝ v^3 (Admiralty coefficient / cube law)
       const cubicTPD = refTPD * Math.pow(spd / refSpeed, 3);
-      // Sadece makul aralıkta tut: refTPD'nin %30-%300'ü arası
-      const clampedTPD = Math.min(refTPD * 3, Math.max(refTPD * 0.3, cubicTPD));
-      // Gerçek veri noktasına yakınsa onu kullan
       const realPoint = reliableSpeeds_raw.find(r => Math.abs(r.speed_kn - spd) < 0.3);
       return {
         speed_kn: spd,
-        total_tpd: realPoint ? realPoint.total_tpd : clampedTPD,
-        n: realPoint ? realPoint.n : 0,  // 0 = interpolated
+        total_tpd: realPoint ? realPoint.total_tpd : Math.min(refTPD*3, Math.max(refTPD*0.3, cubicTPD)),
+        n: realPoint ? realPoint.n : 0,
         filtered_n: realPoint ? realPoint.filtered_n : 0,
         hours_sample: realPoint ? realPoint.hours_sample : 0,
-        total_hours: realPoint ? realPoint.total_hours : 0,
-        reliable_hours: realPoint ? realPoint.reliable_hours : 0,
-        isShortTerm: !realPoint,  // interpolated = short term warning
+        total_hours: 0, reliable_hours: 0,
+        isShortTerm: !realPoint,
         isInterpolated: !realPoint,
       };
     });
