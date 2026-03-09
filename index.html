@@ -241,12 +241,12 @@ const JWC_ZONES = {
 
 // Gemi değeri (override edilebilir)
 const VESSEL_VALUES = {
-  'UGR ZAKHER':          18000000,
-  'UGR AL SAMHA':        18000000,
+  'UGR ZAKHER':          100000000,
+  'UGR AL SAMHA':        100000000,
   'CHANG SHENG HONG':    12000000,
   'AL JUBAIL':           10000000,
   'RAMHAN':              10000000,
-  'UGR ARABIAN GULF':    14000000,
+  'UGR ARABIAN GULF':    42000000,
   'UGR AL REEF':         14000000,
   'ABU SAMRAH':          8000000,
   'SUPER-FAST BALEARES': 12000000,
@@ -288,8 +288,10 @@ function detectEWRIZones(portList) {
   return triggered;
 }
 
-function calcEWRI(vesselName, triggeredZones, overrides) {
+function calcEWRI(vesselName, triggeredZones, overrides, portList) {
   // overrides: { zoneKey: { rate_pct, vessel_value, active } }
+  // 50% No Claim Bonus applied by default (standard market practice)
+  const NCB = 0.50; // No Claim Bonus — industry standard %50 indirim
   const details = [];
   let totalEWRI = 0;
   
@@ -302,8 +304,31 @@ function calcEWRI(vesselName, triggeredZones, overrides) {
     const rate = ov.rate_pct !== undefined ? ov.rate_pct : zone.rate_pct;
     const vesselVal = ov.vessel_value !== undefined ? ov.vessel_value 
                     : (VESSEL_VALUES[vesselName] || zone.vessel_value_default);
-    const cost = vesselVal * (rate / 100);
-    details.push({ key, name: zone.name, rate, vesselVal, cost, active });
+    
+    // Aden/Red Sea: kaç kez geçildiğini say (gidiş+dönüş = 2 geçiş)
+    let transits = 1;
+    if (key === 'ADEN_GULF' && portList && portList.length > 1) {
+      // Rota boyunca Gulf/FarEast ↔ RedSea geçiş sayısını bul
+      const gulfSide = (p) => ['jebel ali','khalifa','dubai','sharjah','hambantota',
+        'karachi','dammam','muscat','ningbo','nansha','yantai','gunsan','singapore'].some(g => p.toLowerCase().includes(g));
+      const redSeaSide = (p) => ['jeddah','aqaba','yanbu','djibouti','suez','port said',
+        'aden','barcelona','marseille','genova','livorno','rotterdam','antwerp','gunsan'].some(r => p.toLowerCase().includes(r));
+      // Count side changes = number of Aden crossings
+      let crossings = 0;
+      let lastSide = null;
+      portList.forEach(p => {
+        const isGulf = gulfSide(p);
+        const isRed = redSeaSide(p);
+        const side = isGulf ? 'GULF' : isRed ? 'RED' : null;
+        if (side && lastSide && side !== lastSide) crossings++;
+        if (side) lastSide = side;
+      });
+      transits = Math.max(1, crossings);
+    }
+    
+    const grossCost = vesselVal * (rate / 100) * transits;
+    const cost = grossCost * (1 - NCB); // %50 No Claim Bonus
+    details.push({ key, name: zone.name, rate, vesselVal, grossCost, ncb: NCB, cost, active, transits });
     totalEWRI += cost;
   });
   
@@ -391,9 +416,13 @@ function calcEUCosts(legs, portFuelDetails, routePortList, etsPriceEur, eurUsd) 
   }
   const ghgTarget = FUELEU_TARGET_2025;
   const shortfall = Math.max(0, actualGHGintensity - ghgTarget); // gCO2eq/MJ over target
-  // Penalty: shortfall * energy_GJ * 1000 MJ/GJ / 1,000,000 (g→t) * penalty_rate
-  const fuelEUpenaltyMJ = shortfall * fuelEUconsumed.energy_gj * 1000; // gCO2eq total excess
-  const fuelEUpenaltyUSD = (fuelEUpenaltyMJ / 1000000) * FUELEU_PENALTY_EUR_PER_GJ * eurUsd;
+  // FuelEU Penalty (Article 23): 
+  // penalty = (actual_GHG - target_GHG) × E_total_MJ / 1,000,000 (g→tCO2eq) × €2400/tCO2eq
+  // FUELEU_PENALTY_EUR_PER_GJ = 2400 €/tCO2eq shortfall (NOT per GJ — variable name misleading)
+  const totalEnergyMJ = fuelEUconsumed.energy_gj * 1000; // GJ → MJ
+  const excessEmissionsTco2 = (shortfall * totalEnergyMJ) / 1000000; // gCO2eq → tCO2eq
+  const fuelEUpenaltyUSD = excessEmissionsTco2 * FUELEU_PENALTY_EUR_PER_GJ * eurUsd;
+  const fuelEUpenaltyMJ = excessEmissionsTco2; // for display (tCO2eq)
   
   const hasEU = routePortList.some(p => isEUPort(p));
   
@@ -406,6 +435,7 @@ function calcEUCosts(legs, portFuelDetails, routePortList, etsPriceEur, eurUsd) 
     actualGHGintensity,
     ghgTarget,
     shortfall,
+    excessTco2: excessEmissionsTco2,
     fuelEUpenaltyUSD,
     legDetails,
     coverage: ETS_COVERAGE_2025,
@@ -2188,7 +2218,7 @@ function updateEWRIPreview() {
   const zones = detectEWRIZones(routePortList);
   const vesselSel = document.getElementById('rVessel');
   const vesselName = vesselSel ? vesselSel.options[vesselSel.selectedIndex]?.text?.split(' (')[0] : '';
-  const ewri = calcEWRI(vesselName, zones, {});
+  const ewri = calcEWRI(vesselName, zones, {}, routePortList);
   
   const el = document.getElementById('ewriZones');
   if (!el) return;
@@ -2347,7 +2377,7 @@ async function calculateRoute(){
   const hireCost = totalWithMargin * vessel.tc_rate_daily;
   // EWRI
   const ewriZones = detectEWRIZones(routePortList);
-  const ewriResult = calcEWRI(vesselName, ewriZones, {});
+  const ewriResult = calcEWRI(vesselName, ewriZones, {}, routePortList);
   const ewriCost = ewriResult.total;
   
   // EU ETS + FuelEU
@@ -2460,7 +2490,8 @@ async function calculateRoute(){
     rh += '<div class="rr" style="border-top:1px solid rgba(239,68,68,.1);margin-top:4px">';
     rh += '<span class="rn" style="color:var(--red)">⚔️ EWRI / War Risk</span><span class="rv red">'+fmt(ewriCost)+'</span></div>';
     ewriResult.details.forEach(d => {
-      rh += '<div style="font-size:7px;color:var(--fog);padding-left:12px">'+d.name+': '+d.rate+'% × $'+fmtN(d.vesselVal)+' = '+fmt(d.cost)+'</div>';
+      const transitTxt = d.transits > 1 ? ' × '+d.transits+' geçiş' : '';
+      rh += '<div style="font-size:7px;color:var(--fog);padding-left:12px">'+d.name+': '+d.rate+'%'+transitTxt+' × $'+fmtN(d.vesselVal)+' = $'+fmtN(d.grossCost)+' → NCB %50 → <b>'+fmt(d.cost)+'</b></div>';
     });
   } else {
     rh += '<div class="rr"><span class="rn" style="color:var(--green)">✅ EWRI</span><span class="rv green">$0 — JWC bölgesi yok</span></div>';
@@ -2473,7 +2504,7 @@ async function calculateRoute(){
     rh += '<div style="font-size:7px;color:var(--fog);padding-left:12px">'+(euResult.etsCO2.toFixed(1))+' tCO₂ × €'+etsPriceEur+'/tCO₂ × '+eurUsd+' = '+fmt(euResult.etsUSD)+'</div>';
     if(euResult.fuelEUpenaltyUSD > 0){
       rh += '<div class="rr"><span class="rn" style="color:var(--teal)">🌍 FuelEU Penalty</span><span class="rv amber">'+fmt(euResult.fuelEUpenaltyUSD)+'</span></div>';
-      rh += '<div style="font-size:7px;color:var(--fog);padding-left:12px">Gerçek yoğunluk: '+euResult.actualGHGintensity.toFixed(1)+' gCO₂/MJ | Hedef: '+euResult.ghgTarget+' | Fark: '+euResult.shortfall.toFixed(2)+'</div>';
+      rh += '<div style="font-size:7px;color:var(--fog);padding-left:12px">Gerçek: '+euResult.actualGHGintensity.toFixed(1)+' gCO₂eq/MJ | Hedef: '+euResult.ghgTarget+' | Fark: '+euResult.shortfall.toFixed(2)+' gCO₂/MJ × '+fmtN(Math.round(euResult.fuelEUconsumed.energy_gj*1000))+' MJ = '+fmtN(Math.round(euResult.excessTco2))+' tCO₂eq excess</div>';
     } else {
       rh += '<div class="rr"><span class="rn" style="color:var(--green)">✅ FuelEU</span><span class="rv green">Ceza yok (hedef altında)</span></div>';
     }
