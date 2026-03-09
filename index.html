@@ -2751,7 +2751,7 @@ async function calculateRoute(){
   // ═══ SPEED OPTIMIZATION ═══
   const vesselCurve = (window.SPEED_CURVES || []).filter(sc => sc.vessel_name === vesselName);
   
-  if(vesselCurve.length >= 3 && totalDist > 0){
+  if(vesselCurve.length >= 1 && totalDist > 0){
     rh += '<div class="divider"></div>';
     rh += '<div style="font-weight:600;color:var(--navy);font-size:10px;margin:8px 0 6px">⚡ HIZ OPTİMİZASYONU — ' + vesselName + '</div>';
     rh += '<div style="font-size:9px;color:var(--text-mid);margin-bottom:8px">Aynı rota, farklı hızlarda: yakıt tasarrufu vs hire artışı trade-off analizi</div>';
@@ -2772,7 +2772,7 @@ async function calculateRoute(){
     if(sc.hours_at_speed) speedGroups_hours[k].push(sc.hours_at_speed);
   });
   const reliableSpeeds = Object.entries(speedGroups)
-    .filter(([spd, tpds]) => tpds.length >= 2) // en az 2 kayıt
+    .filter(([spd, tpds]) => tpds.length >= 1) // en az 1 kayıt (tek kayıt = düşük güven)
     .map(([spd, tpds]) => {
       const sorted = [...tpds].sort((a,b)=>a-b);
       const mid = Math.floor(sorted.length/2);
@@ -2839,6 +2839,9 @@ async function calculateRoute(){
       });
     });
     
+    if(speedResults.length === 0){
+      rh += '<div style="color:var(--fog);font-size:9px;padding:8px">Bu gemi için yeterli hız eğrisi verisi bulunamadı.</div>';
+    }
     if(speedResults.length > 0){
       // Find optimum (max daily profit)
       const optimum = speedResults.reduce((best, r) => r.dp > best.dp ? r : best);
