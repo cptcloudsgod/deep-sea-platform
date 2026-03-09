@@ -211,6 +211,7 @@ select:focus,input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,9
 const SUPABASE_URL = 'https://rajjphfoeucsmxxwqpcm.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhampwaGZvZXVjc214eHdxcGNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5NjU0NDYsImV4cCI6MjA4ODU0MTQ0Nn0.9G67R7KyzPZwLvQtXvlsuK5meP-v4xK46cQ5djhnYy4';
 const OIL_API_KEY = 'e77f25ebeb681615184bc0d676ae944901e66aa01035ea23f001459216526760';
+const OIL_PROXY = 'https://ais-proxy-x31h.onrender.com';
 
 function showKeySetup(){
   showModal('<h3>Supabase Bağlantısı</h3>'
@@ -776,7 +777,7 @@ async function fetchLiveFuel(){
     let liveHtml='';
     for(const port of ports){
       try{
-        const resp=await fetch('https://api.oilpriceapi.com/v1/marine-ports/' + port, {headers:{'Authorization':'Token '+OIL_API_KEY}});
+        const resp=await fetch(OIL_PROXY + '/oil/bunker?port=' + port);
         if(resp.ok){
           const d=await resp.json();
           const name=PORT_MAP[port]||port;
@@ -843,11 +844,11 @@ async function initTicker(){
     const items=[];
     for(const port of ['SGSIN','AEFJR','NLRTM']){
       try{
-        const r=await fetch('https://api.oilpriceapi.com/v1/marine-ports/' + port, {headers:{'Authorization':'Token '+OIL_API_KEY}});
+        const r=await fetch(OIL_PROXY + '/oil/bunker?port=' + port);
         if(r.ok){const d=await r.json();const nm=PORT_MAP[port];if(d.data){const f=d.data.fuel_prices||d.data.fuels||{};if(f.VLSFO)items.push({g:'VLSFO',p:nm,pr:f.VLSFO,ch:'LIVE'});if(f.MGO_05S||f.MGO)items.push({g:'MGO',p:nm,pr:f.MGO_05S||f.MGO,ch:'LIVE'});if(f.HFO_380)items.push({g:'HFO',p:nm,pr:f.HFO_380,ch:'LIVE'});}}
       }catch(e){}
     }
-    try{const r=await fetch('https://api.oilpriceapi.com/v1/prices/latest?by_code=BRENT_CRUDE_USD',{headers:{'Authorization':'Token '+OIL_API_KEY}});if(r.ok){const d=await r.json();if(d.data)items.push({g:'BRENT',p:'Crude',pr:d.data.price,ch:'LIVE'});}}catch(e){}
+    try{const r=await fetch(OIL_PROXY + '/oil/price?by_code=BRENT_CRUDE_USD');if(r.ok){const d=await r.json();if(d.data)items.push({g:'BRENT',p:'Crude',pr:d.data.price,ch:'LIVE'});}}catch(e){}
     $('tickerContent').innerHTML=buildTickerHTML(items.length>2?items:fallback);
   }catch(e){// Save fallback prices for calculator
       window._tickerPrices = {VLSFO: 742.5, MGO: 1202, HFO: 620};
@@ -1656,8 +1657,7 @@ async function fetchLiveFuelPrices(){
   const ports = ['AEFJR','SGSIN','NLRTM'];
   for(const port of ports){
     try {
-      const resp = await fetch('https://api.oilpriceapi.com/v1/marine-ports/' + port, {
-        headers: {'Authorization': 'Token ' + OIL_API_KEY},
+      const resp = await fetch(OIL_PROXY + '/oil/bunker?port=' + port, {
       });
       if(!resp.ok) continue;
       const text = await resp.text();
@@ -3054,9 +3054,14 @@ function aisConnectWS(mmsiList) {
     aisSetWS('', '⚠️ Bağlantı kesildi');
     aisHideLoading();
     if (ev.code !== 1000) {
-      setTimeout(() => {
-        if (aisWS === ws) aisConnectWS(mmsiList);
-      }, 10000);
+      // 60 saniye bekle — API key throttle'ını önle
+      let secs = 60;
+      aisSetWS('', `⏳ ${secs}s sonra yeniden bağlanıyor...`);
+      const countdown = setInterval(() => {
+        secs--;
+        if (secs > 0) aisSetWS('', `⏳ ${secs}s sonra yeniden bağlanıyor...`);
+        else { clearInterval(countdown); if (aisWS === ws) aisConnectWS(mmsiList); }
+      }, 1000);
     }
   };
 
