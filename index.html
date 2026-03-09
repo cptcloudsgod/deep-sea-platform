@@ -4409,7 +4409,10 @@ window.addEventListener('load', async ()=>{
     $('dbStats').textContent=e.message;
   }
   
-  loadTab(8);
+  loadTab(0);
+  loadTab(0).then(() => {
+    stab(8);
+  });
   initTicker();
 });
 </script>
