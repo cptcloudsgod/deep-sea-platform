@@ -3,469 +3,506 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Concept A — Sidebar Nav</title>
+<title>Concept B — Professional Light</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 :root {
-  --bg: #07111f;
-  --surface: #0d1d30;
-  --surface2: #122237;
-  --border: rgba(255,255,255,0.06);
-  --accent: #f4a23a;
-  --accent2: #3b82f6;
-  --green: #10b981;
-  --red: #ef4444;
-  --text: #e8edf3;
-  --muted: #627694;
-  --sidebar-w: 220px;
+  --bg: #f0f2f5;
+  --white: #ffffff;
+  --border: #dde1e7;
+  --navy: #0f2644;
+  --navy2: #1a3a5c;
+  --orange: #e07b2a;
+  --blue: #1d6eb5;
+  --green: #1a7a4a;
+  --red: #c0392b;
+  --amber: #b8860b;
+  --text: #1a2332;
+  --muted: #6b7a8d;
+  --light: #f7f8fa;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; }
+
+/* HEADER */
+.header {
+  background: var(--navy);
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 24px;
+  border-bottom: 3px solid var(--orange);
+}
+.logo {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.logo span { color: var(--orange); }
+
+.nav { display: flex; gap: 2px; margin-left: 20px; }
+.nav-btn {
+  padding: 6px 14px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.65);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.1s;
+  letter-spacing: 0.3px;
+}
+.nav-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.nav-btn.active { background: var(--orange); color: #fff; font-weight: 600; }
+
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: #4ade80;
+  letter-spacing: 1px;
+}
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; animation: blink 1.5s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* TICKER BAR */
+.ticker-bar {
+  background: #172d4a;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 20px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.ticker-item { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.ticker-label { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.4); letter-spacing: 1px; text-transform: uppercase; }
+.ticker-price { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.85); }
+.ticker-chg { font-size: 9px; font-family: 'IBM Plex Mono', monospace; }
+.up { color: #4ade80; }
+.dn { color: #f87171; }
+.ticker-sep { color: rgba(255,255,255,0.12); font-size: 14px; }
+
+/* LAYOUT */
+.workspace {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 10px;
+  padding: 10px;
+  height: calc(100vh - 74px);
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: var(--bg); color: var(--text); font-family: 'Space Grotesk', sans-serif; height: 100vh; display: flex; overflow: hidden; }
-
-/* SIDEBAR */
-.sidebar {
-  width: var(--sidebar-w);
-  background: var(--surface);
-  border-right: 1px solid var(--border);
+/* FORM PANEL */
+.form-panel {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 4px;
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
-}
-
-.logo {
-  padding: 24px 20px 20px;
-  border-bottom: 1px solid var(--border);
-}
-.logo-mark {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 3px;
-  color: var(--accent);
-  text-transform: uppercase;
-  font-family: 'DM Mono', monospace;
-}
-.logo-name {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1;
-  margin-top: 4px;
-}
-.logo-name span { color: var(--accent); }
-
-.nav { padding: 16px 12px; flex: 1; }
-.nav-section { margin-bottom: 24px; }
-.nav-label {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  color: var(--muted);
-  text-transform: uppercase;
-  padding: 0 8px;
-  margin-bottom: 6px;
-  font-family: 'DM Mono', monospace;
-}
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.15s;
-  margin-bottom: 2px;
-}
-.nav-item:hover { background: var(--surface2); color: var(--text); }
-.nav-item.active { background: rgba(244, 162, 58, 0.12); color: var(--accent); }
-.nav-item .icon { width: 16px; text-align: center; font-size: 14px; }
-.nav-item .badge {
-  margin-left: auto;
-  background: rgba(59,130,246,0.2);
-  color: var(--accent2);
-  font-size: 9px;
-  font-family: 'DM Mono', monospace;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 600;
-}
-
-.sidebar-footer {
-  padding: 16px;
-  border-top: 1px solid var(--border);
-}
-.fuel-ticker {
-  background: rgba(16,185,129,0.08);
-  border: 1px solid rgba(16,185,129,0.15);
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-.fuel-ticker .label { font-size: 8px; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; font-family: 'DM Mono', monospace; margin-bottom: 6px; }
-.fuel-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.fuel-row .name { font-size: 10px; color: var(--muted); }
-.fuel-row .price { font-size: 11px; font-weight: 600; color: var(--text); font-family: 'DM Mono', monospace; }
-.fuel-row .chg { font-size: 9px; color: var(--green); }
-
-/* MAIN */
-.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-
-.topbar {
-  height: 56px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  padding: 0 24px;
-  gap: 16px;
-  flex-shrink: 0;
-}
-.topbar-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
-}
-.topbar-sub {
-  font-size: 11px;
-  color: var(--muted);
-  font-family: 'DM Mono', monospace;
-}
-.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
-.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
-@keyframes pulse { 0%,100%{ opacity:1 } 50%{ opacity:0.5 } }
-.status-text { font-size: 10px; color: var(--green); font-family: 'DM Mono', monospace; }
-
-.content { flex: 1; overflow-y: auto; padding: 24px; }
-
-/* SPLIT LAYOUT */
-.split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; height: 100%; }
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
   overflow: hidden;
 }
-.panel-header {
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
+.panel-title-bar {
+  background: var(--navy);
+  color: #fff;
+  padding: 8px 14px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-family: 'IBM Plex Mono', monospace;
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.panel-title { font-size: 12px; font-weight: 600; letter-spacing: 0.5px; color: var(--text); }
-.panel-subtitle { font-size: 10px; color: var(--muted); margin-left: auto; font-family: 'DM Mono', monospace; }
-.panel-body { padding: 18px; }
+.panel-body { padding: 14px; flex: 1; overflow-y: auto; }
 
-/* Form elements mock */
-.field { margin-bottom: 14px; }
-.field label { display: block; font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; font-family: 'DM Mono', monospace; }
-.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-row { margin-bottom: 10px; }
+.form-row label {
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.form-cols { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
 .input-mock {
-  background: var(--bg);
+  background: var(--light);
   border: 1px solid var(--border);
-  border-radius: 7px;
-  height: 36px;
-  padding: 0 12px;
+  height: 32px;
+  border-radius: 3px;
+  padding: 0 10px;
   display: flex;
   align-items: center;
   font-size: 12px;
   color: var(--text);
-  font-family: 'DM Mono', monospace;
+  font-family: 'IBM Plex Mono', monospace;
 }
-.input-mock.accent { border-color: rgba(244,162,58,0.3); color: var(--accent); }
-.route-pills { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-.pill {
-  background: rgba(59,130,246,0.12);
-  border: 1px solid rgba(59,130,246,0.2);
-  color: var(--accent2);
-  font-size: 10px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-family: 'DM Mono', monospace;
-}
-.pill-arrow { color: var(--muted); font-size: 10px; }
+.input-mock.primary { border-color: var(--blue); background: rgba(29,110,181,0.04); color: var(--blue); font-weight: 600; }
 
-/* Results mock */
-.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-.kpi {
-  background: var(--bg);
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+.section-divider .line { flex: 1; height: 1px; background: var(--border); }
+.section-divider .title { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; font-family: 'IBM Plex Mono', monospace; }
+
+/* Route viz */
+.route-strip {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--light);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
+  border-radius: 3px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  margin-bottom: 10px;
 }
-.kpi .val { font-size: 20px; font-weight: 700; font-family: 'DM Mono', monospace; }
-.kpi .val.green { color: var(--green); }
-.kpi .val.amber { color: var(--accent); }
-.kpi .val.blue { color: var(--accent2); }
-.kpi .lbl { font-size: 9px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+.port-node { text-align: center; }
+.port-code { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; color: var(--navy); }
+.port-name { font-size: 8px; color: var(--muted); white-space: nowrap; }
+.route-arrow { color: var(--muted); font-size: 10px; padding: 0 6px; flex-shrink: 0; }
 
-.cost-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); }
-.cost-row:last-child { border: none; }
-.cost-row .name { font-size: 11px; color: var(--muted); }
-.cost-row .amount { font-size: 12px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--text); }
-.cost-row.total .name { color: var(--text); font-weight: 600; }
-.cost-row.total .amount { color: var(--accent); font-size: 14px; }
+/* PDA mini table */
+.mini-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.mini-table th { font-size: 8px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding: 4px 6px; text-align: left; border-bottom: 2px solid var(--border); font-family: 'IBM Plex Mono', monospace; }
+.mini-table td { padding: 5px 6px; border-bottom: 1px solid var(--border); color: var(--text); }
+.mini-table td:last-child { text-align: right; font-family: 'IBM Plex Mono', monospace; color: var(--navy); font-weight: 600; }
 
-.btn {
-  background: var(--accent);
-  color: #000;
+.calc-btn {
+  width: 100%;
+  background: var(--navy);
+  color: #fff;
   border: none;
-  border-radius: 8px;
-  padding: 11px 20px;
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
+  height: 38px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 600;
   font-size: 12px;
   cursor: pointer;
+  letter-spacing: 1px;
+  margin-top: 12px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+.calc-btn:hover { background: var(--navy2); }
+
+/* RESULTS PANEL */
+.results-panel { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+
+/* KPI strip */
+.kpi-strip {
+  background: var(--navy);
+  border-radius: 4px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  overflow: hidden;
+}
+.kpi-box { padding: 14px 16px; border-right: 1px solid rgba(255,255,255,0.08); }
+.kpi-box:last-child { border: none; }
+.kpi-val { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 600; }
+.kpi-val.profit { color: #4ade80; }
+.kpi-val.tce { color: #60a5fa; }
+.kpi-val.daily { color: #fbbf24; }
+.kpi-val.neutral { color: #fff; }
+.kpi-lbl { font-size: 9px; letter-spacing: 1px; color: rgba(255,255,255,0.45); text-transform: uppercase; margin-top: 3px; font-family: 'IBM Plex Mono', monospace; }
+
+/* Two-col detail */
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.detail-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.card-head {
+  background: #f7f8fa;
+  border-bottom: 1px solid var(--border);
+  padding: 7px 12px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+}
+.card-body { padding: 10px 12px; }
+
+.cost-line { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f0f2f5; }
+.cost-line:last-child { border: none; }
+.cost-line .n { font-size: 11px; color: var(--text); }
+.cost-line .v { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--navy); font-weight: 600; }
+.cost-line.total { margin-top: 4px; padding-top: 8px; border-top: 2px solid var(--border); border-bottom: none; }
+.cost-line.total .n { font-weight: 700; color: var(--navy); font-size: 12px; }
+.cost-line.total .v { color: var(--orange); font-size: 14px; }
+
+.legs-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.legs-table th { font-size: 8px; font-weight: 700; letter-spacing: 1px; color: var(--muted); text-align: left; padding: 4px 6px; background: #f7f8fa; border-bottom: 1px solid var(--border); font-family: 'IBM Plex Mono', monospace; }
+.legs-table td { padding: 5px 6px; border-bottom: 1px solid #f5f6f8; font-family: 'IBM Plex Mono', monospace; }
+.legs-table tr:last-child td { border: none; }
+
+.speed-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.speed-table th { font-size: 8px; font-weight: 700; color: var(--muted); text-align: left; padding: 4px 6px; background: #f7f8fa; border-bottom: 1px solid var(--border); font-family: 'IBM Plex Mono', monospace; letter-spacing: 1px; }
+.speed-table td { padding: 5px 6px; border-bottom: 1px solid #f5f6f8; font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+.speed-table tr.opt { background: rgba(26,122,74,0.06); }
+.speed-table tr.opt td { color: var(--green); font-weight: 600; }
+.speed-table tr.cur { background: rgba(29,110,181,0.06); }
+.speed-table tr.cur td:first-child::after { content: ' ◀'; color: var(--blue); }
+
+.excel-btn {
   width: 100%;
+  background: #1a7a4a;
+  color: #fff;
+  border: none;
+  height: 36px;
+  border-radius: 3px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  cursor: pointer;
   letter-spacing: 0.5px;
   margin-top: 4px;
 }
 
-/* Speed mini chart */
-.speed-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
-.speed-val { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--muted); width: 42px; }
-.speed-bar-wrap { flex: 1; height: 4px; background: var(--border); border-radius: 2px; }
-.speed-bar { height: 4px; border-radius: 2px; background: var(--accent2); }
-.speed-bar.best { background: var(--green); }
-.speed-profit { font-size: 10px; font-family: 'DM Mono', monospace; color: var(--text); width: 80px; text-align: right; }
+.warn-bar {
+  background: rgba(184,134,11,0.08);
+  border: 1px solid rgba(184,134,11,0.25);
+  border-radius: 3px;
+  padding: 8px 12px;
+  font-size: 10px;
+  color: var(--amber);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 </style>
 </head>
 <body>
 
-<!-- SIDEBAR -->
-<nav class="sidebar">
-  <div class="logo">
-    <div class="logo-mark">DSL // v22</div>
-    <div class="logo-name">Deep Sea <span>Line</span></div>
-  </div>
-
+<div class="header">
+  <div class="logo">DEEP SEA <span>LINE</span></div>
   <div class="nav">
-    <div class="nav-section">
-      <div class="nav-label">Operations</div>
-      <div class="nav-item active">
-        <span class="icon">🧭</span> Rota Optimizer
-      </div>
-      <div class="nav-item">
-        <span class="icon">🚢</span> Filo
-        <span class="badge">11</span>
-      </div>
-      <div class="nav-item">
-        <span class="icon">🛰️</span> AIS Takip
-      </div>
+    <div class="nav-btn active">🧭 Rota Optimizer</div>
+    <div class="nav-btn">🚢 Filo</div>
+    <div class="nav-btn">⛽ Yakıt</div>
+    <div class="nav-btn">📤 Excel</div>
+    <div class="nav-btn">📂 Arşiv ▾</div>
+    <div class="nav-btn">🛰️ AIS</div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      AIS LIVE
     </div>
+  </div>
+</div>
 
-    <div class="nav-section">
-      <div class="nav-label">Market</div>
-      <div class="nav-item">
-        <span class="icon">⛽</span> Canlı Yakıt
-      </div>
-    </div>
+<div class="ticker-bar">
+  <div class="ticker-item">
+    <span class="ticker-label">BRENT</span>
+    <span class="ticker-price">$74.2</span>
+    <span class="ticker-chg up">▲0.3%</span>
+  </div>
+  <span class="ticker-sep">|</span>
+  <div class="ticker-item">
+    <span class="ticker-label">MGO FUJ</span>
+    <span class="ticker-price">$1,202/MT</span>
+    <span class="ticker-chg dn">▼$3</span>
+  </div>
+  <span class="ticker-sep">|</span>
+  <div class="ticker-item">
+    <span class="ticker-label">VLSFO</span>
+    <span class="ticker-price">$742/MT</span>
+    <span class="ticker-chg">—</span>
+  </div>
+  <span class="ticker-sep">|</span>
+  <div class="ticker-item">
+    <span class="ticker-label">HFO</span>
+    <span class="ticker-price">$620/MT</span>
+    <span class="ticker-chg up">▲$5</span>
+  </div>
+  <span class="ticker-sep">|</span>
+  <div class="ticker-item">
+    <span class="ticker-label">EUR/USD</span>
+    <span class="ticker-price">1.09</span>
+    <span class="ticker-chg dn">▼0.1%</span>
+  </div>
+</div>
 
-    <div class="nav-section">
-      <div class="nav-label">Tools</div>
-      <div class="nav-item">
-        <span class="icon">📤</span> Excel Yükle
+<div class="workspace">
+
+  <!-- FORM -->
+  <div class="form-panel">
+    <div class="panel-title-bar">⚙ Voyage Parameters</div>
+    <div class="panel-body">
+      <div class="form-row">
+        <label>Gemi Seçimi</label>
+        <div class="input-mock primary">UGR ZAKHER — $35,000/gün</div>
       </div>
-      <div class="nav-section">
-        <div class="nav-label" style="margin-top:8px">Arşiv</div>
-        <div class="nav-item">
-          <span class="icon">🌍</span> Limanlar
-        </div>
-        <div class="nav-item">
-          <span class="icon">⚖️</span> Karar Motoru
-        </div>
-        <div class="nav-item">
-          <span class="icon">📏</span> Kurallar
+      <div class="form-row">
+        <div class="form-cols">
+          <div>
+            <label>Hız (kn)</label>
+            <div class="input-mock">15.5</div>
+          </div>
+          <div>
+            <label>EUR/USD</label>
+            <div class="input-mock">1.09</div>
+          </div>
         </div>
       </div>
+
+      <div class="section-divider"><div class="line"></div><div class="title">Rota</div><div class="line"></div></div>
+
+      <div class="route-strip">
+        <div class="port-node">
+          <div class="port-code">CNNGB</div>
+          <div class="port-name">Ningbo</div>
+        </div>
+        <span class="route-arrow">→</span>
+        <div class="port-node">
+          <div class="port-code">AEJEA</div>
+          <div class="port-name">Jebel Ali</div>
+        </div>
+        <span class="route-arrow">→</span>
+        <div class="port-node">
+          <div class="port-code">SAJED</div>
+          <div class="port-name">Jeddah</div>
+        </div>
+        <span class="route-arrow">→</span>
+        <div class="port-node">
+          <div class="port-code">ESBCN</div>
+          <div class="port-name">Barcelona</div>
+        </div>
+        <span class="route-arrow">→</span>
+        <div class="port-node">
+          <div class="port-code">SAJED</div>
+          <div class="port-name">Jeddah</div>
+        </div>
+      </div>
+
+      <div class="section-divider"><div class="line"></div><div class="title">Kargo & Revenue</div><div class="line"></div></div>
+
+      <div class="form-row">
+        <div class="form-cols">
+          <div>
+            <label>Revenue ($)</label>
+            <div class="input-mock">5,500,000</div>
+          </div>
+          <div>
+            <label>Araç Adedi</label>
+            <div class="input-mock">3,600</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-divider"><div class="line"></div><div class="title">Port Costs (PDA)</div><div class="line"></div></div>
+
+      <table class="mini-table">
+        <thead><tr><th>Liman</th><th>Referans</th><th>PDA Est.</th></tr></thead>
+        <tbody>
+          <tr><td>Ningbo</td><td>$82,500 (2,500 araç)</td><td>$82,500</td></tr>
+          <tr><td>Jebel Ali</td><td>$65,200 (1,800 araç)</td><td>$65,200</td></tr>
+          <tr><td>Jeddah</td><td>$82,000 (1,500 araç)</td><td>$82,000</td></tr>
+          <tr><td>Barcelona</td><td>$98,000 (1,500 araç)</td><td>$98,000</td></tr>
+          <tr><td>Jeddah</td><td>$82,000 (1,500 araç)</td><td>$82,000</td></tr>
+          <tr style="background:#f7f8fa"><td colspan="2" style="font-weight:700;font-size:10px">Toplam PDA</td><td style="color:var(--red);font-weight:700">$486,300</td></tr>
+        </tbody>
+      </table>
+
+      <button class="calc-btn">▶ HESAPLA</button>
     </div>
   </div>
 
-  <div class="sidebar-footer">
-    <div class="fuel-ticker">
-      <div class="label">Bunker Prices</div>
-      <div class="fuel-row">
-        <span class="name">BRENT</span>
-        <span class="price">$74.2</span>
-        <span class="chg">▲0.3%</span>
+  <!-- RESULTS -->
+  <div class="results-panel">
+    <div class="kpi-strip">
+      <div class="kpi-box">
+        <div class="kpi-val profit">$1.29M</div>
+        <div class="kpi-lbl">Net Profit</div>
       </div>
-      <div class="fuel-row">
-        <span class="name">MGO FUJ</span>
-        <span class="price">$1,202</span>
-        <span class="chg" style="color:var(--red)">▼0.1%</span>
+      <div class="kpi-box">
+        <div class="kpi-val tce">$63,345</div>
+        <div class="kpi-lbl">TCE / day</div>
       </div>
-      <div class="fuel-row" style="margin:0">
-        <span class="name">VLSFO</span>
-        <span class="price">$742</span>
-        <span class="chg">—</span>
+      <div class="kpi-box">
+        <div class="kpi-val daily">$28,345</div>
+        <div class="kpi-lbl">Daily Profit</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-val neutral">45.6 gün</div>
+        <div class="kpi-lbl">Total Duration</div>
       </div>
     </div>
-  </div>
-</nav>
 
-<!-- MAIN -->
-<div class="main">
-  <div class="topbar">
-    <div>
-      <div class="topbar-title">Rota Optimizer</div>
-      <div class="topbar-sub">Voyage Estimate & Cost Analysis</div>
+    <div class="warn-bar">
+      ⚡ SUEZ GEÇİŞİ GEREKLİ — 2 transit × $575,000 = $1.15M dahil
     </div>
-    <div class="topbar-right">
-      <div class="status-dot"></div>
-      <div class="status-text">AIS LIVE</div>
-    </div>
-  </div>
 
-  <div class="content">
-    <div class="split">
-      <!-- LEFT: Input -->
-      <div style="display:flex;flex-direction:column;gap:16px">
-        <div class="panel">
-          <div class="panel-header">
-            <span style="font-size:14px">🧭</span>
-            <span class="panel-title">Voyage Setup</span>
-          </div>
-          <div class="panel-body">
-            <div class="field">
-              <label>Gemi & Hız</label>
-              <div class="field-row">
-                <div class="input-mock accent">UGR ZAKHER ($35k/d)</div>
-                <div class="input-mock">15.5 kn</div>
-              </div>
-            </div>
-            <div class="field">
-              <label>Rota</label>
-              <div class="route-pills">
-                <div class="pill">NINGBO</div>
-                <span class="pill-arrow">→</span>
-                <div class="pill">JEBEL ALI</div>
-                <span class="pill-arrow">→</span>
-                <div class="pill">JEDDAH</div>
-                <span class="pill-arrow">→</span>
-                <div class="pill">BARCELONA</div>
-              </div>
-            </div>
-            <div class="field">
-              <label>Revenue</label>
-              <div class="input-mock">$5,500,000</div>
-            </div>
-            <div class="field">
-              <label>Kargo</label>
-              <div class="field-row">
-                <div class="input-mock">3,600 araç</div>
-                <div class="input-mock">0 H&H</div>
-              </div>
-            </div>
-            <button class="btn">HESAPLA →</button>
-          </div>
-        </div>
-
-        <!-- Speed optimization mini -->
-        <div class="panel">
-          <div class="panel-header">
-            <span style="font-size:14px">⚡</span>
-            <span class="panel-title">Hız Optimizasyonu</span>
-            <span class="panel-subtitle">trade-off analizi</span>
-          </div>
-          <div class="panel-body">
-            <div class="speed-row">
-              <span class="speed-val">13.5 kn</span>
-              <div class="speed-bar-wrap"><div class="speed-bar best" style="width:100%"></div></div>
-              <span class="speed-profit" style="color:var(--green)">-$65,267/d ✓</span>
-            </div>
-            <div class="speed-row">
-              <span class="speed-val">14.5 kn</span>
-              <div class="speed-bar-wrap"><div class="speed-bar" style="width:78%"></div></div>
-              <span class="speed-profit">-$68,762/d</span>
-            </div>
-            <div class="speed-row">
-              <span class="speed-val">15.5 kn</span>
-              <div class="speed-bar-wrap"><div class="speed-bar" style="width:62%;background:var(--accent)"></div></div>
-              <span class="speed-profit" style="color:var(--accent)">-$74,647/d ◀</span>
-            </div>
-            <div class="speed-row">
-              <span class="speed-val">17.0 kn</span>
-              <div class="speed-bar-wrap"><div class="speed-bar" style="width:40%;background:var(--red)"></div></div>
-              <span class="speed-profit" style="color:var(--red)">-$82,715/d</span>
-            </div>
-          </div>
+    <div class="detail-grid">
+      <div class="detail-card">
+        <div class="card-head">💰 Maliyet Dağılımı</div>
+        <div class="card-body">
+          <div class="cost-line"><span class="n">Seyir Yakıtı (1,414 MT)</span><span class="v" style="color:var(--red)">$1,719,392</span></div>
+          <div class="cost-line"><span class="n">Liman Yakıtı (89 MT)</span><span class="v" style="color:var(--red)">$89,000</span></div>
+          <div class="cost-line" style="padding-left:8px;background:#fafafa"><span class="n" style="color:var(--muted);font-size:10px">Toplam Yakıt</span><span class="v" style="color:var(--muted)">1,503 MT</span></div>
+          <div class="cost-line"><span class="n">TC Hire (45.6d × $35k)</span><span class="v" style="color:var(--red)">$1,596,000</span></div>
+          <div class="cost-line"><span class="n">Port Costs (PDA)</span><span class="v" style="color:var(--red)">$486,300</span></div>
+          <div class="cost-line"><span class="n">Suez Canal (2×)</span><span class="v" style="color:var(--red)">$1,150,000</span></div>
+          <div class="cost-line"><span class="n">EWRI / War Risk</span><span class="v" style="color:var(--red)">$175,000</span></div>
+          <div class="cost-line"><span class="n">EU ETS + FuelEU</span><span class="v" style="color:var(--amber)">$52,535</span></div>
+          <div class="cost-line total"><span class="n">TOTAL COST</span><span class="v">$4,210,000</span></div>
+          <button class="excel-btn">📥 Excel Aktar</button>
         </div>
       </div>
 
-      <!-- RIGHT: Results -->
-      <div class="panel">
-        <div class="panel-header">
-          <span style="font-size:14px">📊</span>
-          <span class="panel-title">Voyage Estimate</span>
-          <span class="panel-subtitle">UGR ZAKHER · 45.6 gün</span>
+      <div class="detail-card">
+        <div class="card-head">⛵ Seyir Bacakları</div>
+        <div class="card-body" style="padding:0">
+          <table class="legs-table">
+            <thead><tr><th>BACAK</th><th>NM</th><th>GÜN</th><th>MT</th><th>MALİYET</th></tr></thead>
+            <tbody>
+              <tr><td>Ningbo→Jebel Ali</td><td>5,536</td><td>14.9</td><td>627</td><td>$753,660</td></tr>
+              <tr><td>Jebel Ali→Jeddah</td><td>2,269</td><td>6.1</td><td>257</td><td>$308,842</td></tr>
+              <tr><td>Jeddah→Alexandria</td><td>635</td><td>1.7</td><td>72</td><td>$86,506</td></tr>
+              <tr><td>Alex→Barcelona</td><td>1,580</td><td>4.2</td><td>179</td><td>$215,085</td></tr>
+              <tr><td>Barcelona→Jeddah</td><td>2,610</td><td>7.0</td><td>296</td><td>$355,299</td></tr>
+            </tbody>
+          </table>
         </div>
-        <div class="panel-body">
-          <div class="kpi-grid">
-            <div class="kpi">
-              <div class="val amber">$1.29M</div>
-              <div class="lbl">Net Profit</div>
-            </div>
-            <div class="kpi">
-              <div class="val blue">$63,345</div>
-              <div class="lbl">TCE / gün</div>
-            </div>
-            <div class="kpi">
-              <div class="val green">$28,345</div>
-              <div class="lbl">Daily Profit</div>
-            </div>
-            <div class="kpi">
-              <div class="val" style="color:var(--text)">1,503</div>
-              <div class="lbl">MT Toplam</div>
-            </div>
-          </div>
+      </div>
+    </div>
 
-          <div style="margin-bottom:12px">
-            <div class="cost-row">
-              <span class="name">Revenue</span>
-              <span class="amount" style="color:var(--green)">$5,500,000</span>
-            </div>
-            <div class="cost-row">
-              <span class="name">Seyir yakıtı</span>
-              <span class="amount">$1,719,392</span>
-            </div>
-            <div class="cost-row">
-              <span class="name">Liman yakıtı</span>
-              <span class="amount">$89,000</span>
-            </div>
-            <div class="cost-row">
-              <span class="name">TC Hire (45.6d)</span>
-              <span class="amount">$1,596,000</span>
-            </div>
-            <div class="cost-row">
-              <span class="name">Port Costs (PDA)</span>
-              <span class="amount">$486,300</span>
-            </div>
-            <div class="cost-row">
-              <span class="name">Suez Canal (2×)</span>
-              <span class="amount">$1,150,000</span>
-            </div>
-            <div class="cost-row">
-              <span class="name">EWRI / War Risk</span>
-              <span class="amount">$175,000</span>
-            </div>
-            <div class="cost-row">
-              <span class="name">EU ETS + FuelEU</span>
-              <span class="amount">$52,535</span>
-            </div>
-            <div class="cost-row total">
-              <span class="name">TOTAL COST</span>
-              <span class="amount">$4,210,000</span>
-            </div>
-          </div>
-
-          <button class="btn" style="background:rgba(59,130,246,0.15);color:var(--accent2);margin-top:0">
-            📥 Excel Aktar (Voyage Estimate)
-          </button>
-        </div>
+    <div class="detail-card">
+      <div class="card-head">⚡ Hız Optimizasyonu — UGR ZAKHER</div>
+      <div class="card-body" style="padding:0">
+        <table class="speed-table">
+          <thead><tr><th>HIZ</th><th>TPD</th><th>DENİZ GÜN</th><th>TOT. GÜN</th><th>YAKIT $</th><th>HİRE $</th><th>TOT. $</th><th>PROFİT</th><th>DAILY P</th><th>GÜVEN</th></tr></thead>
+          <tbody>
+            <tr class="opt"><td>13.5kn ★</td><td>21.6</td><td>31.0</td><td>38.8</td><td>$865K</td><td>$1.36M</td><td>$2.53M</td><td>-$2.53M</td><td style="color:var(--green)">-$65,267</td><td>📐</td></tr>
+            <tr><td>14.5kn</td><td>25.1</td><td>28.9</td><td>36.7</td><td>$929K</td><td>$1.28M</td><td>$2.52M</td><td>-$2.52M</td><td>-$68,762</td><td>📐</td></tr>
+            <tr class="cur"><td>15.5kn</td><td>31.2</td><td>27.0</td><td>34.8</td><td>$1.07M</td><td>$1.22M</td><td>$2.60M</td><td>-$2.60M</td><td>-$74,647</td><td>📐</td></tr>
+            <tr><td>17.0kn</td><td>39.8</td><td>24.6</td><td>32.4</td><td>$1.24M</td><td>$1.14M</td><td>$2.68M</td><td>-$2.68M</td><td>-$82,715</td><td>📐</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
