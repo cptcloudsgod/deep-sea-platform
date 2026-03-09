@@ -2147,7 +2147,7 @@ function renderPDATable() {
     html += '<td class="' + (hasOverride ? 'amber' : 'red') + '" style="font-weight:600">$' + fmtN(pda) + (hasOverride ? ' ✏️' : '') + '</td>';
     html += '<td><input type="number" style="width:80px;font-size:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px" ';
     html += 'placeholder="Manuel" value="' + (hasOverride ? window.PDA_OVERRIDES[port] : '') + '" ';
-    html += 'onchange="setPDAOverride('' + port + '', this.value)">';
+    html += 'onchange="setPDAOverride(\'' + port + '\', this.value)">';
     html += '</td>';
     html += '</tr>';
   });
