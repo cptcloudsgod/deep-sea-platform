@@ -312,7 +312,8 @@ function calcEWRI(vesselName, triggeredZones, overrides, portList) {
       const gulfSide = (p) => ['jebel ali','khalifa','dubai','sharjah','hambantota',
         'karachi','dammam','muscat','ningbo','nansha','yantai','gunsan','singapore'].some(g => p.toLowerCase().includes(g));
       const redSeaSide = (p) => ['jeddah','aqaba','yanbu','djibouti','suez','port said',
-        'aden','barcelona','marseille','genova','livorno','rotterdam','antwerp','gunsan'].some(r => p.toLowerCase().includes(r));
+        'aden','barcelona','marseille','genova','livorno','rotterdam','antwerp',
+        'piraeus','zeebrugge','hamburg','valencia','le havre','toulon'].some(r => p.toLowerCase().includes(r));
       // Count side changes = number of Aden crossings
       let crossings = 0;
       let lastSide = null;
@@ -343,9 +344,18 @@ const EU_PORTS = ['Barcelona','Marseille','Genova','Livorno','Toulon','Tarragona
 const EU_ETS_PRICE_EUR = 65; // €/tonne CO2 — editable
 const EUR_USD = 1.09;        // editable
 const FUELEU_PENALTY_EUR_PER_GJ = 2400; // €/GJ shortfall penalty (2025)
-const CO2_FACTORS = { 'MGO': 3.206, 'VLSFO': 3.151, 'HFO': 3.114, 'LNG': 2.750 }; // tCO2/MT
+const CO2_FACTORS = { 'MGO': 3.206, 'VLSFO': 3.151, 'HFO': 3.114, 'LNG': 2.750 }; // tCO2/MT (ETS için tank-to-wake)
 const LHV = { 'MGO': 42.7, 'VLSFO': 41.2, 'HFO': 40.5, 'LNG': 50.0 }; // MJ/kg (energy content)
-// FuelEU GHG intensity targets (gCO2eq/MJ)
+// FuelEU GHG intensity — WELL-TO-WAKE (upstream + combustion)
+// Kaynak: EU FuelEU Maritime Regulation 2023/1805, Annex I Table 1
+const WTW_INTENSITY = { 
+  'MGO':   93.3,  // gCO2eq/MJ WtW — hedefin üstünde, ceza var
+  'VLSFO': 91.3,  // gCO2eq/MJ WtW — hedefin üstünde, ceza var
+  'HFO':   91.7,  // gCO2eq/MJ WtW — hedefin üstünde, ceza var
+  'LNG':   75.0,  // gCO2eq/MJ WtW — methane slip ~80 dahil (boru hattı LNG)
+  'BIOFUEL': 20.0, // örnek biyoyakıt blend
+};
+// FuelEU GHG intensity targets (gCO2eq/MJ) — Well-to-Wake
 const FUELEU_TARGET_2025 = 89.34; // 2% reduction from 2020 baseline 91.16
 const FUELEU_BASELINE = 91.16;
 
@@ -371,7 +381,7 @@ function calcEUCosts(legs, portFuelDetails, routePortList, etsPriceEur, eurUsd) 
     const co2Factor = CO2_FACTORS[fuelType] || 3.151;
     const lhv = LHV[fuelType] || 41.2;
     const co2 = l.fuelMT * co2Factor;
-    const energyGJ = l.fuelMT * lhv * 0.001; // MT * MJ/kg * 1000kg/MT / 1000 = GJ
+    const energyGJ = l.fuelMT * lhv; // MT * MJ/kg → 1MT=1000kg → 1000MJ → *MJ/kg → /1000(MJ/GJ) → net: MT*LHV GJ/MT
     
     let etsFraction = 0;
     if (fromEU && toEU) etsFraction = 1.0;       // intra-EU: 100%
@@ -399,7 +409,7 @@ function calcEUCosts(legs, portFuelDetails, routePortList, etsPriceEur, eurUsd) 
     const co2Factor = CO2_FACTORS[fuelType] || 3.151;
     const lhv = LHV[fuelType] || 41.2;
     const co2port = pd.mt * co2Factor;
-    const energyPort = pd.mt * lhv * 0.001;
+    const energyPort = pd.mt * lhv; // MT * LHV = GJ
     etsCO2 += co2port * ETS_COVERAGE_2025;
     fuelEUconsumed.energy_gj += energyPort;
     fuelEUconsumed.co2 += co2port;
@@ -408,21 +418,52 @@ function calcEUCosts(legs, portFuelDetails, routePortList, etsPriceEur, eurUsd) 
   
   const etsUSD = etsCO2 * (etsPriceEur * eurUsd);
   
-  // FuelEU penalty calculation
-  // Actual GHG intensity of fuel used
-  let actualGHGintensity = FUELEU_BASELINE; // fallback
-  if (fuelEUconsumed.energy_gj > 0) {
-    actualGHGintensity = (fuelEUconsumed.co2 * 1000000) / (fuelEUconsumed.energy_gj * 1000); // gCO2eq/MJ
+  // FuelEU penalty calculation (FuelEU Maritime Regulation 2023/1805)
+  // GHG intensity reference values (gCO2eq/MJ, well-to-wake):
+  // MGO: 93.3 | VLSFO: 91.7 | HFO: 91.7 | LNG: 75.9
+  // Note: These are WtW (well-to-wake) values per Annex II of FuelEU Maritime
+  // 2025 target: 89.34 gCO2eq/MJ (2% below 2020 baseline of 91.16)
+  const GHG_WTW = { 'MGO': 93.3, 'VLSFO': 91.7, 'HFO': 91.7, 'LNG': 75.9 };
+  
+  // Calculate actual WtW intensity weighted by EU-applicable energy
+  let totalEUenergyGJ = 0;
+  let totalEUco2WTW = 0;
+  
+  legs.forEach(l => {
+    if (l.missing || !l.fuelMT) return;
+    const fromEU = isEUPort(l.from);
+    const toEU = isEUPort(l.to);
+    if (!fromEU && !toEU) return;
+    const fuelType = l.fuel?.fuel || 'VLSFO';
+    const lhv = LHV[fuelType] || 41.2;
+    const wtwFactor = GHG_WTW[fuelType] || 91.7; // gCO2eq/MJ
+    const fraction = (fromEU && toEU) ? 1.0 : 0.5;
+    const energyGJ = l.fuelMT * lhv * fraction; // GJ
+    const co2WTW = energyGJ * 1000 * wtwFactor; // MJ * gCO2eq/MJ = gCO2eq
+    totalEUenergyGJ += energyGJ;
+    totalEUco2WTW += co2WTW;
+  });
+  portFuelDetails.forEach(pd => {
+    if (!isEUPort(pd.port)) return;
+    const fuelType = pd.fuel?.fuel || 'VLSFO';
+    const lhv = LHV[fuelType] || 41.2;
+    const wtwFactor = GHG_WTW[fuelType] || 91.7;
+    const energyGJ = pd.mt * lhv;
+    totalEUenergyGJ += energyGJ;
+    totalEUco2WTW += energyGJ * 1000 * wtwFactor;
+  });
+  
+  let actualGHGintensity = FUELEU_BASELINE;
+  if (totalEUenergyGJ > 0) {
+    actualGHGintensity = totalEUco2WTW / (totalEUenergyGJ * 1000); // gCO2eq/MJ
   }
   const ghgTarget = FUELEU_TARGET_2025;
-  const shortfall = Math.max(0, actualGHGintensity - ghgTarget); // gCO2eq/MJ over target
-  // FuelEU Penalty (Article 23): 
-  // penalty = (actual_GHG - target_GHG) × E_total_MJ / 1,000,000 (g→tCO2eq) × €2400/tCO2eq
-  // FUELEU_PENALTY_EUR_PER_GJ = 2400 €/tCO2eq shortfall (NOT per GJ — variable name misleading)
-  const totalEnergyMJ = fuelEUconsumed.energy_gj * 1000; // GJ → MJ
-  const excessEmissionsTco2 = (shortfall * totalEnergyMJ) / 1000000; // gCO2eq → tCO2eq
+  const shortfall = Math.max(0, actualGHGintensity - ghgTarget);
+  const totalEnergyMJ = totalEUenergyGJ * 1000;
+  // Penalty: excess gCO2eq/MJ × energy MJ / 1e6 (g→tCO2eq) × €2400/tCO2eq
+  const excessEmissionsTco2 = (shortfall * totalEnergyMJ) / 1000000;
   const fuelEUpenaltyUSD = excessEmissionsTco2 * FUELEU_PENALTY_EUR_PER_GJ * eurUsd;
-  const fuelEUpenaltyMJ = excessEmissionsTco2; // for display (tCO2eq)
+  const fuelEUpenaltyMJ = excessEmissionsTco2;
   
   const hasEU = routePortList.some(p => isEUPort(p));
   
@@ -2242,6 +2283,171 @@ function updateEWRIPreview() {
   window._autoEWRItotal = ewri.total;
 }
 
+
+// ═══ VOYAGE ESTIMATE EXCEL EXPORT ═══════════════════════════════
+function exportRouteToExcel() {
+  const r = window._lastRouteResult;
+  if (!r) { toast('Önce hesaplama yapın', 'error'); return; }
+
+  const wb = XLSX.utils.book_new();
+  const S = (v) => ({ v, t: 's' });
+  const N = (v, fmt) => ({ v: (typeof v === 'number' ? v : 0), t: 'n', z: fmt || '#,##0' });
+  const USD = (v) => ({ v: (typeof v === 'number' ? v : 0), t: 'n', z: '"$"#,##0' });
+  const PCT = (v) => ({ v: (typeof v === 'number' ? v/100 : 0), t: 'n', z: '0.0%' });
+  const H = (v) => ({ v, t: 's', s: { font: { bold: true } } });
+
+  // ─── SHEET 1: VOYAGE ESTIMATE ────────────────────────────────
+  const rows = [];
+  const addRow = (...cells) => rows.push(cells);
+  const blank = () => rows.push([]);
+
+  // Header
+  addRow([{ v: 'VOYAGE ESTIMATE', t: 's', s: { font: { bold: true, sz: 14 } } }]);
+  addRow([S('UGR Lines — Deep Sea Operations')]);
+  addRow([S('Generated: ' + new Date().toLocaleDateString('tr-TR') + ' ' + new Date().toLocaleTimeString('tr-TR'))]);
+  blank();
+
+  // Route summary
+  addRow([{ v: 'VOYAGE SUMMARY', t: 's', s: { font: { bold: true, color: { rgb: 'C8A24E' } } } }]);
+  addRow([S('Vessel'), S(r.vessel)]);
+  addRow([S('Route'), S(r.routePortList.join(' → '))]);
+  addRow([S('Speed'), N(r.speed, '0.0'), S('kn')]);
+  addRow([S('Total Distance'), N(r.totalDist, '#,##0'), S('NM')]);
+  addRow([S('Sea Days'), N(r.totalSeaDays, '0.00')]);
+  addRow([S('Port Days'), N(r.totalIdleDays, '0.00')]);
+  addRow([S('Total Days (incl. 5% margin)'), N(r.totalDays, '0.0')]);
+  if (r.cargoUnits > 0) addRow([S('Cargo Units'), N(r.cargoUnits)]);
+  blank();
+
+  // P&L Summary
+  addRow([{ v: 'P&L SUMMARY', t: 's', s: { font: { bold: true, color: { rgb: 'C8A24E' } } } }]);
+  addRow([S('Revenue'), USD(r.revenue)]);
+  addRow([S('Sea Fuel Cost'), USD(-r.totalFuelCost + r.portFuelCost), USD(r.totalFuelCost - r.portFuelCost)]);
+  addRow([S('Port Fuel Cost'), USD(-r.portFuelCost), USD(r.portFuelCost)]);
+  addRow([S('TC Hire ($' + r.tc_rate.toLocaleString() + '/d × ' + r.totalDays.toFixed(1) + 'd)'), USD(-r.hireCost), USD(r.hireCost)]);
+  addRow([S('Port Disbursements (PDA)'), USD(-r.portCostInput), USD(r.portCostInput)]);
+  if (r.suezNeeded) addRow([S('  └ Suez Canal (' + r.suezTransits + ' transit)'), USD(-r.suezCost * r.suezTransits), USD(r.suezCost * r.suezTransits)]);
+  if (r.ewriCost > 0) addRow([S('EWRI / War Risk Premium'), USD(-r.ewriCost), USD(r.ewriCost)]);
+  if (r.euTotalCost > 0) {
+    addRow([S('EU ETS (2025, 70% coverage)'), USD(-r.euResult.etsUSD), USD(r.euResult.etsUSD)]);
+    if (r.euResult.fuelEUpenaltyUSD > 0) addRow([S('FuelEU Penalty'), USD(-r.euResult.fuelEUpenaltyUSD), USD(r.euResult.fuelEUpenaltyUSD)]);
+  }
+  blank();
+  addRow([{ v: 'TOTAL COST', t: 's', s: { font: { bold: true } } }, USD(-r.totalCost), USD(r.totalCost)]);
+  addRow([{ v: 'NET PROFIT', t: 's', s: { font: { bold: true } } }, { v: r.profit, t: 'n', z: '"$"#,##0', s: { font: { bold: true, color: { rgb: r.profit >= 0 ? '10B981' : 'EF4444' } } } }]);
+  addRow([S('Daily Profit'), USD(r.dailyProfit), S('/day')]);
+  addRow([S('TCE'), USD(r.tce), S('/day')]);
+  addRow([S('Total Fuel Consumed'), N(r.totalFuelMT, '#,##0'), S('MT')]);
+  blank();
+
+  // Sea Legs detail
+  addRow([{ v: 'SEA LEGS', t: 's', s: { font: { bold: true, color: { rgb: 'C8A24E' } } } }]);
+  addRow([S('From'), S('To'), S('NM'), S('Days'), S('Fuel Type'), S('$/MT'), S('MT'), S('Cost ($)'), S('ECA')]);
+  r.legs.forEach(l => {
+    if (l.missing) {
+      rows.push([S(l.from), S(l.to), S('MISSING'), S('—'), S('—'), S('—'), S('—'), S('—'), S('')]);
+    } else {
+      rows.push([S(l.from), S(l.to), N(l.dist), N(l.sea, '0.00'), S(l.fuel.fuel), N(l.fuel.price), N(Math.round(l.fuelMT)), USD(l.fuelCost), S(l.fuel.reason.includes('ECA') ? 'ECA' : '')]);
+    }
+  });
+  blank();
+
+  // Port fuel detail
+  addRow([{ v: 'PORT CONSUMPTION', t: 's', s: { font: { bold: true, color: { rgb: 'C8A24E' } } } }]);
+  addRow([S('Port'), S('Days'), S('Fuel'), S('$/MT'), S('MT'), S('Cost ($)')]);
+  r.portFuelDetails.forEach(pd => {
+    rows.push([S(pd.port), N(pd.days, '0.0'), S(pd.fuel.fuel), N(pd.fuel.price), N(Math.round(pd.mt)), USD(pd.cost)]);
+  });
+  blank();
+
+  // Port costs
+  addRow([{ v: 'PORT DISBURSEMENTS (PDA)', t: 's', s: { font: { bold: true, color: { rgb: 'C8A24E' } } } }]);
+  addRow([S('Port'), S('Estimated PDA ($)'), S('Notes')]);
+  r.autoPortCosts.forEach(apc => {
+    const pdaCost = getPDAcost(apc.port, r.cargoUnits);
+    rows.push([S(apc.port), USD(pdaCost), S(r.cargoUnits > 0 ? r.cargoUnits + ' units' : 'Reference rate')]);
+  });
+  if (r.suezNeeded) {
+    rows.push([S('Suez Canal'), USD(r.suezCost * r.suezTransits), S(r.suezTransits + ' transit(s)')]);
+  }
+  blank();
+
+  // EWRI detail
+  if (r.ewriCost > 0) {
+    addRow([{ v: 'EWRI / WAR RISK (JWC)', t: 's', s: { font: { bold: true, color: { rgb: 'EF4444' } } } }]);
+    addRow([S('Zone'), S('Rate (%)'), S('Vessel Value ($)'), S('Transits'), S('Gross ($)'), S('NCB 50%'), S('Net ($)')]);
+    r.ewriDetails.forEach(d => {
+      rows.push([S(d.name), PCT(d.rate * 100), USD(d.vesselVal), N(d.transits || 1), USD(d.grossCost), PCT(50), USD(d.cost)]);
+    });
+    blank();
+  }
+
+  // EU ETS
+  if (r.euResult && r.euResult.hasEU) {
+    addRow([{ v: 'EU REGULATION COSTS', t: 's', s: { font: { bold: true, color: { rgb: '10B981' } } } }]);
+    addRow([S('ETS Price (€/tCO2)'), N(r.etsPriceEur), S('EUR/USD'), N(r.eurUsd, '0.00')]);
+    addRow([S('ETS Coverage (2025)'), S('70%')]);
+    addRow([S('CO2 subject to ETS'), N(r.euResult.etsCO2.toFixed(1)), S('tonnes')]);
+    addRow([S('EU ETS Cost'), USD(r.euResult.etsUSD)]);
+    if (r.euResult.fuelEUpenaltyUSD > 0) {
+      addRow([S('FuelEU — Actual GHG Intensity'), N(r.euResult.actualGHGintensity.toFixed(2)), S('gCO2eq/MJ (WtW)')]);
+      addRow([S('FuelEU — Target 2025'), N(r.euResult.ghgTarget), S('gCO2eq/MJ')]);
+      addRow([S('FuelEU — Shortfall'), N(r.euResult.shortfall.toFixed(2)), S('gCO2eq/MJ')]);
+      addRow([S('FuelEU Penalty'), USD(r.euResult.fuelEUpenaltyUSD)]);
+    }
+    blank();
+  }
+
+  // Footer
+  addRow([S('ASSUMPTIONS & NOTES')]);
+  addRow([S('• Port costs are PDA estimates based on historical reference data. Actual PDA may vary.')]);
+  addRow([S('• EWRI premium includes 50% No Claim Bonus (NCB). Rates subject to underwriter approval.')]);
+  addRow([S('• EU ETS: 2025 coverage = 70% (increases to 100% in 2026).')]);
+  addRow([S('• FuelEU: Well-to-Wake GHG intensity. MGO=93.3, VLSFO=91.7, HFO=91.7 gCO2eq/MJ.')]);
+  addRow([S('• Speed optimization: median TPD values from vessel performance data (min. 2 observations).')]);
+  addRow([S('• Calculations as of: ' + r.calcDate)]);
+
+  // Build worksheet
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 42 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 14 }
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Voyage Estimate');
+
+  // ─── SHEET 2: SPEED COMPARISON ───────────────────────────────
+  if (window._lastSpeedResults && window._lastSpeedResults.length > 0) {
+    const sr = [];
+    sr.push([S('SPEED OPTIMIZATION — ' + r.vessel)]);
+    sr.push([S('Route: ' + r.routePortList.join(' → '))]);
+    sr.push([]);
+    sr.push([S('Speed (kn)'), S('TPD (MT)'), S('Sea Days'), S('Total Days'), S('Fuel Cost ($)'), S('Hire Cost ($)'), S('Total Cost ($)'), S('Profit ($)'), S('Daily Profit ($/d)'), S('TCE ($/d)'), S('Data Points'), S('Reliability')]);
+    window._lastSpeedResults.forEach(sc => {
+      sr.push([
+        N(sc.speed, '0.0'), N(sc.tpd, '0.0'), N(sc.seaDays, '0.00'), N(sc.totalDays, '0.0'),
+        USD(sc.fuelCost), USD(sc.hireCost), USD(sc.totalCost),
+        { v: sc.profit, t: 'n', z: '"$"#,##0' },
+        { v: sc.dp, t: 'n', z: '"$"#,##0' },
+        { v: sc.tce, t: 'n', z: '"$"#,##0' },
+        N(sc.n || 1), S(sc.n >= 5 ? 'High' : sc.n >= 2 ? 'Medium' : 'Low')
+      ]);
+    });
+    const ws2 = XLSX.utils.aoa_to_sheet(sr);
+    ws2['!cols'] = [
+      { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
+      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 12 }
+    ];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Speed Optimization');
+  }
+
+  // Download
+  const fname = 'voyage_estimate_' + r.vessel.replace(/ /g,'_') + '_' + new Date().toISOString().slice(0,10) + '.xlsx';
+  XLSX.writeFile(wb, fname);
+  toast('Excel indirildi: ' + fname, 'success');
+}
+
 async function calculateRoute(){
   if(routePortList.length < 2){
     toast('En az 2 liman gerekli', 'error');
@@ -2297,9 +2503,11 @@ async function calculateRoute(){
     autoTotalPC += getSuezCost() * suezTransits;
   }
   
-  // PDA auto-total
+  // PDA auto-total: her hesaplamada PDA tablosunu güncelle (gemi değişince bile)
+  renderPDATable(); // limanlar ve kargo adedine göre güncel hesapla
+  const freshPDAtotal = window._autoPDAtotal || autoTotalPC;
   if(portCostInput === 0){
-    portCostInput = window._autoPDAtotal || autoTotalPC;
+    portCostInput = freshPDAtotal;
   }
   const vesselName = vessel.name;
   
@@ -2519,7 +2727,26 @@ async function calculateRoute(){
   rh += '<div class="rr"><span class="rn"><b>Daily Profit</b></span><span class="rv '+profitCls+'"><b>'+fmt(dailyProfit)+'/gün</b></span></div>';
   rh += '<div class="rr"><span class="rn"><b>TCE</b></span><span class="rv teal"><b>'+fmt(tce)+'/gün</b></span></div>';
   
+  rh += '<div class="divider"></div>';
+  rh += '<button class="btn btn-green" style="width:100%;margin-top:4px;font-size:10px" onclick="exportRouteToExcel()">&#128229; Excel Aktar (Voyage Estimate)</button>';
+  
   rh += '</div>';
+  
+  // Sonuçları export için sakla
+  window._lastRouteResult = {
+    vessel: vesselName, speed, revenue,
+    totalDays: totalWithMargin, totalDist, totalSeaDays, totalIdleDays,
+    totalFuelMT, totalFuelCost, portFuelCost, hireCost, portCostInput,
+    ewriCost, ewriDetails: ewriResult.details,
+    euResult, euTotalCost,
+    totalCost, profit, dailyProfit, tce,
+    legs, portFuelDetails, routePortList,
+    suezNeeded, suezTransits, suezCost: getSuezCost(),
+    autoPortCosts, cargoUnits: +($('rCargoUnits')?.value||0),
+    tc_rate: vessel.tc_rate_daily,
+    etsPriceEur, eurUsd,
+    calcDate: new Date().toISOString()
+  };
   
   // ═══ SPEED OPTIMIZATION ═══
   const vesselCurve = (window.SPEED_CURVES || []).filter(sc => sc.vessel_name === vesselName);
@@ -2533,8 +2760,47 @@ async function calculateRoute(){
     const speedResults = [];
     const portFuelBase = portFuelCost; // port fuel doesn't change with speed
     
-    vesselCurve.forEach(sc => {
-      if(sc.speed_kn < 10 || sc.speed_kn > 21) return;
+    // Group by speed, filter outliers (use median, min 2 data points)
+  const speedGroups = {};
+  const speedGroups_hours = {};
+  vesselCurve.forEach(sc => {
+    if(sc.speed_kn < 10 || sc.speed_kn > 21) return;
+    const k = sc.speed_kn.toFixed(1);
+    if(!speedGroups[k]) speedGroups[k] = [];
+    speedGroups[k].push(sc.total_tpd);
+    if(!speedGroups_hours[k]) speedGroups_hours[k] = [];
+    if(sc.hours_at_speed) speedGroups_hours[k].push(sc.hours_at_speed);
+  });
+  const reliableSpeeds = Object.entries(speedGroups)
+    .filter(([spd, tpds]) => tpds.length >= 2) // en az 2 kayıt
+    .map(([spd, tpds]) => {
+      const sorted = [...tpds].sort((a,b)=>a-b);
+      const mid = Math.floor(sorted.length/2);
+      const median = sorted.length%2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
+      // Outlier: median'dan %20'den fazla sapanı at (daha sıkı)
+      const filtered = sorted.filter(v => Math.abs(v-median)/median < 0.20);
+      const avg = filtered.reduce((s,v)=>s+v,0)/filtered.length;
+      
+      // Saat bazlı ağırlıklı ortalama: uzun süreli seyrüseferlere daha fazla ağırlık ver
+      const hours_list = (speedGroups_hours[spd] || []).filter(h => h > 0);
+      const MIN_HOURS_RELIABLE = 48; // Güvenilir = en az 48 saat o hızda
+      const reliable_hours = hours_list.filter(h => h >= MIN_HOURS_RELIABLE);
+      const avg_hours = hours_list.length > 0 ? hours_list.reduce((s,h)=>s+h,0)/hours_list.length : 0;
+      const total_hours = hours_list.reduce((s,h)=>s+h,0);
+      
+      // Eğer saat verisi varsa, sadece kısa süreli kayıtlardan gelen hızlara uyarı ekle
+      const isShortTerm = hours_list.length > 0 && avg_hours < MIN_HOURS_RELIABLE;
+      
+      return { 
+        speed_kn: parseFloat(spd), total_tpd: avg, n: tpds.length, 
+        filtered_n: filtered.length, hours_sample: avg_hours, 
+        total_hours, reliable_hours: reliable_hours.length,
+        isShortTerm // true = kısa süreli veri, güven düşük
+      };
+    })
+    .sort((a,b) => a.speed_kn - b.speed_kn);
+    
+  reliableSpeeds.forEach(sc => {
       const spd = sc.speed_kn;
       const tpd = sc.total_tpd;
       
@@ -2568,7 +2834,8 @@ async function calculateRoute(){
         fuelCost: totalFuelAtSpd, hireCost: hireAtSpd,
         totalCost: totalCostAtSpd, profit: profitAtSpd,
         dp: dpAtSpd, tce: tceAtSpd, fuelMT: seaFuelAtSpd,
-        hours: sc.hours_sample
+        hours: sc.hours_sample,
+        n: sc.n || 1, filtered_n: sc.filtered_n || 1
       });
     });
     
@@ -2597,7 +2864,8 @@ async function calculateRoute(){
       }
       
       // Speed comparison table
-      rh += '<table class="tbl"><thead><tr><th>Hız</th><th>TPD</th><th>Deniz Gün</th><th>Toplam Gün</th><th>Yakıt $</th><th>Hire $</th><th>Toplam $</th><th>Profit</th><th>Daily P</th><th>Veri</th></tr></thead><tbody>';
+      window._lastSpeedResults = speedResults;
+      rh += '<table class="tbl"><thead><tr><th>Hız</th><th>TPD</th><th>Deniz Gün</th><th>Toplam Gün</th><th>Yakıt $</th><th>Hire $</th><th>Toplam $</th><th>Profit</th><th>Daily P</th><th>Veri</th><th>Güven</th></tr></thead><tbody>';
       speedResults.forEach(r => {
         const isOpt = r.speed === optimum.speed;
         const isCur = Math.abs(r.speed - speed) < 0.3;
@@ -2616,6 +2884,13 @@ async function calculateRoute(){
         rh += '<td class="' + (r.profit>=0?'green':'red') + '">' + fmt(r.profit) + '</td>';
         rh += '<td class="' + dpCls + '" style="font-weight:700">' + fmt(r.dp) + '</td>';
         rh += '<td style="font-size:7px;color:var(--text-light)">' + Math.round(r.hours) + 'h</td>';
+        // Güven: kayıt sayısı + saat süresi
+        let relIcon, relTitle;
+        if (r.n >= 5 && !r.isShortTerm) { relIcon = '✅'; relTitle = 'Güvenilir'; }
+        else if (r.isShortTerm) { relIcon = '⚠️❗'; relTitle = 'Dikkat: kısa süreli veri (avg ' + Math.round(r.hours_sample) + 'h) — favorable current olabilir'; }
+        else if (r.n >= 3) { relIcon = '⚠️'; relTitle = 'Orta güven'; }
+        else { relIcon = '❓'; relTitle = 'Yetersiz veri'; }
+        rh += '<td style="font-size:9px" title="' + r.n + ' kayıt | ' + Math.round(r.hours_sample) + 'h ort | ' + relTitle + '">' + relIcon + '</td>';
         rh += '</tr>';
       });
       rh += '</tbody></table>';
