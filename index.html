@@ -2682,8 +2682,11 @@ async function calculateRoute(){
   rh += '<div class="rr"><span class="rn"><b>Toplam süre</b></span><span class="rv blue"><b>'+totalWithMargin.toFixed(1)+' gün</b></span></div>';
   rh += '<div class="divider"></div>';
   rh += '<div class="rr"><span class="rn">Revenue</span><span class="rv green">'+fmt(revenue)+'</span></div>';
-  rh += '<div class="rr"><span class="rn">Seyir yakıtı</span><span class="rv red">'+fmt(totalFuelCost - portFuelCost)+'</span></div>';
-  rh += '<div class="rr"><span class="rn">Liman yakıtı</span><span class="rv red">'+fmt(portFuelCost)+'</span></div>';
+  const seaFuelMT = totalFuelMT - portFuelDetails.reduce((s,p)=>s+p.mt,0);
+  const portFuelMT = portFuelDetails.reduce((s,p)=>s+p.mt,0);
+  rh += '<div class="rr"><span class="rn">Seyir yakıtı</span><span class="rv red">'+fmt(totalFuelCost - portFuelCost)+'<span style="font-size:7px;color:var(--fog)"> ('+fmtN(Math.round(seaFuelMT))+' MT)</span></span></div>';
+  rh += '<div class="rr"><span class="rn">Liman yakıtı</span><span class="rv red">'+fmt(portFuelCost)+'<span style="font-size:7px;color:var(--fog)"> ('+fmtN(Math.round(portFuelMT))+' MT)</span></span></div>';
+  rh += '<div class="rr"><span class="rn" style="color:var(--fog)">Toplam yakıt</span><span class="rv amber">'+fmtN(Math.round(totalFuelMT))+' MT</span></div>';
   rh += '<div class="rr"><span class="rn">TC Hire ($'+fmtN(vessel.tc_rate_daily)+'/d × '+totalWithMargin.toFixed(1)+'d)</span><span class="rv red">'+fmt(hireCost)+'</span></div>';
   rh += '<div class="rr"><span class="rn">Liman masrafı '+(portCostInput===(window._autoPDAtotal||autoTotalPC)?'(OTOMATİK PDA)':'(MANUEL)')+'</span><span class="rv red">'+fmt(portCostInput)+'</span></div>';
   if(portCostInput === (window._autoPDAtotal||autoTotalPC)){
@@ -2771,8 +2774,8 @@ async function calculateRoute(){
     if(!speedGroups_hours[k]) speedGroups_hours[k] = [];
     if(sc.hours_at_speed) speedGroups_hours[k].push(sc.hours_at_speed);
   });
-  const reliableSpeeds = Object.entries(speedGroups)
-    .filter(([spd, tpds]) => tpds.length >= 1) // en az 1 kayıt (tek kayıt = düşük güven)
+  const reliableSpeeds_raw = Object.entries(speedGroups)
+    .filter(([spd, tpds]) => tpds.length >= 1)
     .map(([spd, tpds]) => {
       const sorted = [...tpds].sort((a,b)=>a-b);
       const mid = Math.floor(sorted.length/2);
@@ -2799,6 +2802,34 @@ async function calculateRoute(){
       };
     })
     .sort((a,b) => a.speed_kn - b.speed_kn);
+
+  // Eğer tek hız noktası varsa, cubic propeller law ile 10-20 kn arası interpolate et
+  let reliableSpeeds = reliableSpeeds_raw;
+  if (reliableSpeeds_raw.length <= 2 && reliableSpeeds_raw.length > 0) {
+    // Referans noktası: gerçek ortalama hız ve TPD
+    const refSpeed = seaProfile.avg_speed_kn || vessel.speed_ballast || 14;
+    const refTPD = reliableSpeeds_raw[0]?.total_tpd || realSeaTPD;
+    const speedRange = [10, 11, 12, 13, 13.5, 14, 14.5, 15, 15.5, 16, 16.5, 17, 17.5, 18];
+    reliableSpeeds = speedRange.map(spd => {
+      // TPD ∝ v^3 (Admiralty coefficient / cube law)
+      const cubicTPD = refTPD * Math.pow(spd / refSpeed, 3);
+      // Sadece makul aralıkta tut: refTPD'nin %30-%300'ü arası
+      const clampedTPD = Math.min(refTPD * 3, Math.max(refTPD * 0.3, cubicTPD));
+      // Gerçek veri noktasına yakınsa onu kullan
+      const realPoint = reliableSpeeds_raw.find(r => Math.abs(r.speed_kn - spd) < 0.3);
+      return {
+        speed_kn: spd,
+        total_tpd: realPoint ? realPoint.total_tpd : clampedTPD,
+        n: realPoint ? realPoint.n : 0,  // 0 = interpolated
+        filtered_n: realPoint ? realPoint.filtered_n : 0,
+        hours_sample: realPoint ? realPoint.hours_sample : 0,
+        total_hours: realPoint ? realPoint.total_hours : 0,
+        reliable_hours: realPoint ? realPoint.reliable_hours : 0,
+        isShortTerm: !realPoint,  // interpolated = short term warning
+        isInterpolated: !realPoint,
+      };
+    });
+  }
     
   reliableSpeeds.forEach(sc => {
       const spd = sc.speed_kn;
@@ -2835,7 +2866,8 @@ async function calculateRoute(){
         totalCost: totalCostAtSpd, profit: profitAtSpd,
         dp: dpAtSpd, tce: tceAtSpd, fuelMT: seaFuelAtSpd,
         hours: sc.hours_sample,
-        n: sc.n || 1, filtered_n: sc.filtered_n || 1
+        n: sc.n || 1, filtered_n: sc.filtered_n || 1,
+        isInterpolated: sc.isInterpolated || false
       });
     });
     
